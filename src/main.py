@@ -69,7 +69,7 @@ def main():
     cmd.add_argument("--input_size", help='input_size', type=int, default=200)
     cmd.add_argument("--hidden_size", help='hidden_size', type=int, default=200)
     cmd.add_argument("--embedding_size", help='embedding_size', type=int, default=200)
-    cmd.add_argument("--lr", help='lr', type=str, default=0.001)
+    cmd.add_argument("--lr", help='lr', type=float, default=0.001)
 
     args = cmd.parse_args()
     batch_size = args.batch_size
