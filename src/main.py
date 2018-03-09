@@ -118,8 +118,8 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.max_epoch):
         Round_loss = 0
-        final_test_acc = 0
-        best_valid_acc = 0.0
+        # final_test_acc = 0
+        # best_valid_acc = 0.0
         logging.info("epoch:{0} begins!".format(epoch))
         # start_id, end_id = 0, 0 # order from start_id to end_id
         # sort or not sort
@@ -144,6 +144,7 @@ def main():
 
         valid_acc = evaluate(valid_x_idx, valid_y_idx, model, batch_size)
         logging.info("valid_acc = {0}".format(valid_acc))
+
         if(valid_acc > best_valid_acc):
             best_valid_acc = valid_acc
             test_acc = evaluate(test_x_idx, test_y_idx, model, batch_size)  # 在测试集上进行测试
