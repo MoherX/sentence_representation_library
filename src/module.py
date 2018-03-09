@@ -55,5 +55,3 @@ class lstm_model(nn.Module):
         else:
             value, index = torch.max(predict, 1)
             return index  # outsize, cal the acc
-
-

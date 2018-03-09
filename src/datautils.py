@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from torch import optim
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
+from torch.utils.data import Dataset
 
 use_cuda = torch.cuda.is_available()
 
@@ -52,6 +53,32 @@ def preprocess(path):
 
     return train_x, train_y, valid_x, valid_y, test_x, test_y
 
+def collate_batch(batch):
+    outputs_instances = []
+    outputs_lables = []
+    for key in batch:
+        outputs_instances.append(key[0])
+        outputs_lables.append(key[1])
+    return outputs_instances, outputs_lables
+
+def padding(instance_x, instance_y):
+    '''
+    return padded data
+    :param instance_x:  []
+    :param instance_y:  []
+    :return:
+    '''
+    max_len = max(len(sentence) for sentence in instance_x)
+    instance_x = [sentence + (max_len - len(sentence)) * [0] for sentence in instance_x]
+
+    if use_cuda:
+        instance_x = Variable(torch.LongTensor(instance_x)).cuda()
+        instance_y = Variable(torch.LongTensor(instance_y)).cuda()
+    else:
+        instance_x = Variable(torch.LongTensor(instance_x))
+        instance_y = Variable(torch.LongTensor(instance_y))
+
+    return instance_x, instance_y
 
 class Lang:
     def __init__(self):
@@ -153,3 +180,18 @@ def get_batch(instance_x, instance_y, batch_size, batch_lst):
 
 
     return batch_instance_x_padding, batch_instance_y
+
+class MyDataset(Dataset):
+    def __init__(self, instances, labels):
+        self.instances = instances
+        self.lables = labels
+
+    def __getitem__(self, item):
+        # return {"source": self.instances[item][0], "target": self.instances[item][1], "kbs": self.instances[item][2],
+        #         "fields": self.fields}
+        return (self.instances[item], self.lables[item])
+
+    def __len__(self):
+        return len(self.instances)
+
+

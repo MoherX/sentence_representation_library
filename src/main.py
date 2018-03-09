@@ -21,6 +21,7 @@ from torch import optim
 from utils import flatten
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
+import torch.utils.data as Data
 
 use_cuda = torch.cuda.is_available()
 logging.basicConfig(level=logging.INFO,
@@ -95,6 +96,15 @@ def main():
         model = model.cuda()
 
 
+    # dataset = Data.TensorDataset(data_tensor=train_x_idx, target_tensor=train_y_idx)
+    dataset = MyDataset(train_x_idx, train_y_idx)
+
+    dataloader = Data.DataLoader(dataset = dataset,
+                                 batch_size = args.batch_size,
+                                 shuffle=True,
+                                 collate_fn=collate_batch)
+
+
     # 待会可以写个程序画出loss的曲线
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.max_epoch):
@@ -103,11 +113,15 @@ def main():
         logging.info("epoch:{0} begins!".format(epoch))
         start_id, end_id = 0, 0 # order from start_id to end_id
         # sort or not sort
-        for start_id in range(0, len(train_x_idx), batch_size):
+        for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader):
+        #for start_id in range(0, len(train_x_idx), batch_size):
+            batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)
             optimizer.zero_grad()
-            end_id = start_id + batch_size if start_id + batch_size < len(train_x_idx) else len(train_x_idx)
-            batch_lst = lst[start_id:end_id]
-            batch_instance_x, batch_instance_y = get_batch(train_x_idx, train_y_idx, batch_size, batch_lst)
+
+            # end_id = start_id + batch_size if start_id + batch_size < len(train_x_idx) else len(train_x_idx)
+            # batch_lst = lst[start_id:end_id]
+            # batch_instance_x, batch_instance_y = get_batch(train_x_idx, train_y_idx, batch_size, batch_lst)
+            # batch_instance_x, batch_instance_y = dataloader(dataset)
             # batch_instance_x, b_s个instance
             model.train()
 
