@@ -82,7 +82,7 @@ def main():
     cmd.add_argument("--embedding_size", help='embedding_size', type=int, default=200)
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
-
+    cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
 
     args = cmd.parse_args()
     torch.manual_seed(args.seed)
@@ -105,7 +105,7 @@ def main():
     logging.info('train size:{0}, valid size:{1}, test size:{2}'.format(len(train_x_idx), len(valid_x_idx), len(test_x_idx)))
     lst = list(range(len(train_x_idx)))
 
-    model = lstm_model(args.input_size, args.hidden_size, 5, word_size, args.embedding_size)
+    model = lstm_model(args.input_size, args.hidden_size, 5, word_size, args.embedding_size, args.dropout)
 
     if use_cuda:
         model = model.cuda()
@@ -135,7 +135,7 @@ def main():
         # sort or not sort
         for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader): # 这里只是按照之前的进行自动shuffle，没有其它的要求，出来进行padding了和转换为Variable了
         #for start_id in range(0, len(train_x_idx), batch_size):
-            batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)
+            batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)  # we padding those
             optimizer.zero_grad()
 
             # end_id = start_id + batch_size if start_id + batch_size < len(train_x_idx) else len(train_x_idx)
