@@ -15,6 +15,8 @@ import logging
 import codecs
 import os
 import torch
+import random
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
@@ -79,8 +81,13 @@ def main():
     cmd.add_argument("--hidden_size", help='hidden_size', type=int, default=200)
     cmd.add_argument("--embedding_size", help='embedding_size', type=int, default=200)
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
+    cmd.add_argument("--seed", help='seed', type=int, default=1)
+
 
     args = cmd.parse_args()
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+
     batch_size = args.batch_size
     logging.info("args:{0}".format(args))
     train_x, train_y, valid_x, valid_y, test_x, test_y = preprocess(args.data_dir)
@@ -111,6 +118,9 @@ def main():
                                  batch_size = args.batch_size,
                                  shuffle=True,
                                  collate_fn=collate_batch)
+    # dataloader = Data.DataLoader(dataset=dataset,
+    #                              batch_size=args.batch_size,
+    #                              shuffle=True)
 
 
     # 待会可以写个程序画出loss的曲线
@@ -160,3 +170,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
