@@ -36,16 +36,24 @@ def evaluate(instance_x, instance_y, model, batch_size):
     :param model:
     :return:
     '''
-    start_id, end_id = 0, 0
+    dataset = MyDataset(instance_x, instance_y)
+
+    dataloader = Data.DataLoader(dataset=dataset,
+                                 batch_size=batch_size,
+                                 shuffle=True,
+                                 collate_fn=collate_batch)
+    # start_id, end_id = 0, 0
     model.eval()
-    lst = list(range(len(instance_x)))
+    # lst = list(range(len(instance_x)))
     gold_all, predict_all = [], []
 
-    for start_id in range(0, len(instance_x), batch_size):
-        end_id = start_id + batch_size if start_id + batch_size < len(instance_x) else len(instance_x)
-        batch_lst = lst[start_id:end_id]
-        batch_instance_x, batch_instance_y = get_batch(instance_x, instance_y, batch_size, batch_lst)
+    for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader):
+    # for start_id in range(0, len(instance_x), batch_size):
+    #     end_id = start_id + batch_size if start_id + batch_size < len(instance_x) else len(instance_x)
+    #     batch_lst = lst[start_id:end_id]
+    #     batch_instance_x, batch_instance_y = get_batch(instance_x, instance_y, batch_size, batch_lst)
         # batch_instance_x, b_s个instance
+        batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)
         model.eval()
         predict = model.forward(batch_instance_x, batch_instance_y)
         predict_all.append(predict.data.tolist())
@@ -66,7 +74,7 @@ def main():
     cmd = argparse.ArgumentParser("sentence_representation_library")
     cmd.add_argument("--data_dir", help='data_path', type=str, default='../data/')
     cmd.add_argument("--batch_size", help='batch_size', type=int, default=16)
-    cmd.add_argument("--max_epoch", help='max_epoch', type=int, default=1)
+    cmd.add_argument("--max_epoch", help='max_epoch', type=int, default=100)
     cmd.add_argument("--input_size", help='input_size', type=int, default=200)
     cmd.add_argument("--hidden_size", help='hidden_size', type=int, default=200)
     cmd.add_argument("--embedding_size", help='embedding_size', type=int, default=200)
@@ -74,7 +82,7 @@ def main():
 
     args = cmd.parse_args()
     batch_size = args.batch_size
-
+    logging.info("args:{0}".format(args))
     train_x, train_y, valid_x, valid_y, test_x, test_y = preprocess(args.data_dir)
 
     lang = Lang()
@@ -106,14 +114,16 @@ def main():
 
 
     # 待会可以写个程序画出loss的曲线
+    best_valid_acc = 0.0
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.max_epoch):
         Round_loss = 0
-        best_accuracy = 0
+        final_test_acc = 0
+        best_valid_acc = 0.0
         logging.info("epoch:{0} begins!".format(epoch))
-        start_id, end_id = 0, 0 # order from start_id to end_id
+        # start_id, end_id = 0, 0 # order from start_id to end_id
         # sort or not sort
-        for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader):
+        for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader): # 这里只是按照之前的进行自动shuffle，没有其它的要求，出来进行padding了和转换为Variable了
         #for start_id in range(0, len(train_x_idx), batch_size):
             batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)
             optimizer.zero_grad()
@@ -132,13 +142,13 @@ def main():
             Round_loss += loss
         logging.info("epoch:{0} loss:{1}".format(epoch, Round_loss.data[0]))
 
-        accuracy = evaluate(valid_x_idx, valid_y_idx, model, batch_size)
-        logging.info("acc = {0}".format(accuracy))
-        if(accuracy > best_accuracy):
-            best_accuracy = accuracy
-            test_accuracy = evaluate(test_x_idx, test_y_idx, model, batch_size)  # 在测试集上进行测试
+        valid_acc = evaluate(valid_x_idx, valid_y_idx, model, batch_size)
+        logging.info("valid_acc = {0}".format(valid_acc))
+        if(valid_acc > best_valid_acc):
+            best_valid_acc = valid_acc
+            test_acc = evaluate(test_x_idx, test_y_idx, model, batch_size)  # 在测试集上进行测试
 
-            logging.info("epoch:{0} New Record! test_accuracy:{1}".format(epoch, test_accuracy))
+            logging.info("epoch:{0} New Record! valid_accuracy:{1}, test_accuracy:{2}".format(epoch, valid_acc, test_acc))
 
     # finally, we evaluate valid and test dataset accuracy
     valid_acc = evaluate(valid_x_idx, valid_y_idx, model, batch_size)
