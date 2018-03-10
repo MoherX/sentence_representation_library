@@ -8,11 +8,12 @@
 
 import torch
 import torch.nn as nn
+from datautils import padding
 import torch.nn.functional as F
 from torch import optim
 from torch.autograd import Variable
-from torch.nn.utils.rnn import pack_padded_sequence
-
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+use_cuda = torch.cuda.is_available()
 
 class lstm_model(nn.Module):
     def __init__(self, input_size_, hidden_size_, output_size, vocal_size, embedding_size, dropout):
@@ -35,21 +36,35 @@ class lstm_model(nn.Module):
 
     def forward(self, input_x, input_y):
         """
-        intput_x: b_s instances
+        intput_x: b_s instances， 没有进行padding和Variable
         :param input:
         :return:
         """
+        # input = input_x.squeeze(1)
+
+        #
+        input_x, input_y, sentence_lens = padding(input_x, input_y)
+        max_len = len(input_x[0])
+
+        if use_cuda:
+            input_x = Variable(torch.LongTensor(input_x)).cuda()
+            input_y = Variable(torch.LongTensor(input_y)).cuda()
+        else:
+            input_x = Variable(torch.LongTensor(input_x))
+            input_y = Variable(torch.LongTensor(input_y))
         input = input_x.squeeze(1)
 
         embed_input_x = self.embedding(input) # embed_intput_x: (b_s, m_l, em_s)
         embed_input_x = self.dropout(embed_input_x)
 
 
-        encoders, (h_last, c_last) = self.lstm(embed_input_x) # encoders: [b_s, m_l, h_s], h_last: [b_s, h_s]
+        embed_input_x_packed = pack_padded_sequence(embed_input_x, sentence_lens, batch_first=True)
+        encoder_outputs_packed, (h_last, c_last) = self.lstm(embed_input_x_packed)
+        encoder_outputs, _ = pad_packed_sequence(encoder_outputs_packed, batch_first=True)
 
 
-        predict = self.linear(h_last)  # output: [b_s, o_s]
-        predict = self.softmax(predict.squeeze(0))
+        predict = self.linear(h_last)  # predict: [1, b_s, o_s]
+        predict = self.softmax(predict.squeeze(0)) # predict.squeeze(0) [b_s, o_s]
 
         loss = self.NLLoss(predict, input_y)
 

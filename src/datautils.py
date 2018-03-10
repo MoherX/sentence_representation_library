@@ -68,17 +68,25 @@ def padding(instance_x, instance_y):
     :param instance_y:  []
     :return:
     '''
+    # lst = sorted(lst, lambda )
+    lst = range(len(instance_x))
+    lst = sorted(lst, key=lambda d: -len(instance_x[d]))
+    instance_x = [instance_x[index] for index in lst]  # be sorted in decreasing order for packed
+    instance_y = [instance_y[index] for index in lst]
+
+    sentence_lens = [len(sentence) for sentence in instance_x]  # for pack-padded deal
+
     max_len = max(len(sentence) for sentence in instance_x)
     instance_x = [sentence + (max_len - len(sentence)) * [0] for sentence in instance_x]
 
-    if use_cuda:
-        instance_x = Variable(torch.LongTensor(instance_x)).cuda()
-        instance_y = Variable(torch.LongTensor(instance_y)).cuda()
-    else:
-        instance_x = Variable(torch.LongTensor(instance_x))
-        instance_y = Variable(torch.LongTensor(instance_y))
+    # if use_cuda:
+    #     instance_x = Variable(torch.LongTensor(instance_x)).cuda()
+    #     instance_y = Variable(torch.LongTensor(instance_y)).cuda()
+    # else:
+    #     instance_x = Variable(torch.LongTensor(instance_x))
+    #     instance_y = Variable(torch.LongTensor(instance_y))
 
-    return instance_x, instance_y
+    return instance_x, instance_y, sentence_lens
 
 class Lang:
     def __init__(self):

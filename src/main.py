@@ -50,17 +50,16 @@ def evaluate(instance_x, instance_y, model, batch_size):
     gold_all, predict_all = [], []
 
     for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader):
-    # for start_id in range(0, len(instance_x), batch_size):
-    #     end_id = start_id + batch_size if start_id + batch_size < len(instance_x) else len(instance_x)
-    #     batch_lst = lst[start_id:end_id]
-    #     batch_instance_x, batch_instance_y = get_batch(instance_x, instance_y, batch_size, batch_lst)
-        # batch_instance_x, b_s个instance
-        batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)
         model.eval()
-        predict = model.forward(batch_instance_x, batch_instance_y)
+        predict = model.forward(batch_instance_x, batch_instance_y)  # 进到forward的时候，顺序是变了,降序排列了
+
+        lst = range(len(batch_instance_x))
+        lst = sorted(lst, key=lambda d: -len(batch_instance_x[d]))
+        batch_instance_y = [batch_instance_y[index] for index in lst]  # sorted by descend
+
         predict_all.append(predict.data.tolist())
 
-        gold_all.append(batch_instance_y.data.tolist())
+        gold_all.append(batch_instance_y)
 
     gold = flatten(gold_all)
     predict = flatten(predict_all)
@@ -135,17 +134,12 @@ def main():
         # sort or not sort
         for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader): # 这里只是按照之前的进行自动shuffle，没有其它的要求，出来进行padding了和转换为Variable了
         #for start_id in range(0, len(train_x_idx), batch_size):
-            batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)  # we padding those
+            # batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)  # we padding those
             optimizer.zero_grad()
 
-            # end_id = start_id + batch_size if start_id + batch_size < len(train_x_idx) else len(train_x_idx)
-            # batch_lst = lst[start_id:end_id]
-            # batch_instance_x, batch_instance_y = get_batch(train_x_idx, train_y_idx, batch_size, batch_lst)
-            # batch_instance_x, batch_instance_y = dataloader(dataset)
-            # batch_instance_x, b_s个instance
             model.train()
 
-            loss = model.forward(batch_instance_x, batch_instance_y)
+            loss = model.forward(batch_instance_x, batch_instance_y)  # 送进去forward的只是原始的idx表示，还没有padding
 
             loss.backward()
             optimizer.step()
