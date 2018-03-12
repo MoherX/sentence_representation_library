@@ -79,13 +79,6 @@ def padding(instance_x, instance_y):
     max_len = max(len(sentence) for sentence in instance_x)
     instance_x = [sentence + (max_len - len(sentence)) * [0] for sentence in instance_x]
 
-    # if use_cuda:
-    #     instance_x = Variable(torch.LongTensor(instance_x)).cuda()
-    #     instance_y = Variable(torch.LongTensor(instance_y)).cuda()
-    # else:
-    #     instance_x = Variable(torch.LongTensor(instance_x))
-    #     instance_y = Variable(torch.LongTensor(instance_y))
-
     return instance_x, instance_y, sentence_lens
 
 class Lang:

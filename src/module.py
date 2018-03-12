@@ -39,7 +39,7 @@ class Model(nn.Module):
         :param input_y:
         :return:
         """
-        return self.encoder(input_x, input_y)  # interface， implementated by every people
+        return self.encoder.forward(input_x, input_y)  # interface， implementated by every people
 
 
 class lstm_model(nn.Module):
