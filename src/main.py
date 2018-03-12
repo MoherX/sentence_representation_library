@@ -82,9 +82,10 @@ def main():
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
     cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
+    cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm]", type = str, default='lstm')
 
     args = cmd.parse_args()
-    torch.manual_seed(args.seed)
+    torch.manual_seed(args.seed)  # fixed the seed
     random.seed(args.seed)
 
     batch_size = args.batch_size
@@ -104,22 +105,19 @@ def main():
     logging.info('train size:{0}, valid size:{1}, test size:{2}'.format(len(train_x_idx), len(valid_x_idx), len(test_x_idx)))
     lst = list(range(len(train_x_idx)))
 
-    model = lstm_model(args.input_size, args.hidden_size, 5, word_size, args.embedding_size, args.dropout)
+    model = Model(args, args.input_size, args.hidden_size, 5, word_size, args.embedding_size, args.dropout)  # control module
+
 
     if use_cuda:
         model = model.cuda()
 
 
-    # dataset = Data.TensorDataset(data_tensor=train_x_idx, target_tensor=train_y_idx)
     dataset = MyDataset(train_x_idx, train_y_idx)
 
     dataloader = Data.DataLoader(dataset = dataset,
                                  batch_size = args.batch_size,
                                  shuffle=True,
                                  collate_fn=collate_batch)
-    # dataloader = Data.DataLoader(dataset=dataset,
-    #                              batch_size=args.batch_size,
-    #                              shuffle=True)
 
 
     # 待会可以写个程序画出loss的曲线
@@ -127,14 +125,8 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.max_epoch):
         Round_loss = 0
-        # final_test_acc = 0
-        # best_valid_acc = 0.0
         logging.info("epoch:{0} begins!".format(epoch))
-        # start_id, end_id = 0, 0 # order from start_id to end_id
-        # sort or not sort
         for step, (batch_instance_x, batch_instance_y) in enumerate(dataloader): # 这里只是按照之前的进行自动shuffle，没有其它的要求，出来进行padding了和转换为Variable了
-        #for start_id in range(0, len(train_x_idx), batch_size):
-            # batch_instance_x, batch_instance_y = padding(batch_instance_x, batch_instance_y)  # we padding those
             optimizer.zero_grad()
 
             model.train()

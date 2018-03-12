@@ -7,16 +7,43 @@
 # @Software: PyCharm
 
 import torch
+from torch.nn.parameter import Parameter
 import torch.nn as nn
 from datautils import padding
 import torch.nn.functional as F
 from torch import optim
+import numpy as np
+import random
+
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 use_cuda = torch.cuda.is_available()
 
+class Model(nn.Module):
+    def __init__(self, args, input_size_, hidden_size_, output_size, vocal_size, embedding_size, dropout):
+        super(Model, self).__init__()
+        self.input_size = input_size_
+        self.hidden_size = hidden_size_
+        self.output_size = output_size
+        self.vocal_size = vocal_size
+        self.embedding_size =embedding_size
+        self.args = args
+
+        if args.encoder == 'lstm':
+            self.encoder = lstm_model(self.args, self.input_size, self.hidden_size, self.output_size, self.vocal_size, self.embedding_size, dropout)
+
+    def forward(self, input_x, input_y):
+        """
+         intput_x: b_s instances， 没有进行padding和Variable
+        :param input_x:
+        :param input_y:
+        :return:
+        """
+        return self.encoder(input_x, input_y)  # interface， implementated by every people
+
+
 class lstm_model(nn.Module):
-    def __init__(self, input_size_, hidden_size_, output_size, vocal_size, embedding_size, dropout):
+    def __init__(self, args, input_size_, hidden_size_, output_size, vocal_size, embedding_size, dropout):
         super(lstm_model, self).__init__()
 
         self.input_size = input_size_
@@ -24,6 +51,9 @@ class lstm_model(nn.Module):
         self.hidden_size = hidden_size_
         self.output_size = output_size
         self.vocal_size = vocal_size
+        self.seed = args.seed
+        torch.manual_seed(self.seed)  # fixed the seed
+        random.seed(self.seed)
         self.linear = nn.Linear(self.hidden_size, self.output_size)
         self.embedding = nn.Embedding(self.vocal_size, self.embedding_size)
         self.NLLoss = nn.NLLLoss()
@@ -33,6 +63,11 @@ class lstm_model(nn.Module):
                              hidden_size = self.hidden_size,
                              batch_first=True,
                              dropout = dropout)
+
+        self.w_i_in, self.w_i_on = self.lstm.all_weights[0][0].size()
+        self.w_h_in, self.w_h_on = self.lstm.all_weights[0][1].size()
+        self.lstm.all_weights[0][0] = Parameter(torch.randn(self.w_i_in, self.w_i_on)) * np.sqrt(2./ self.w_i_on)
+        self.lstm.all_weights[0][1] = Parameter(torch.randn(self.w_h_in, self.w_h_on)) * np.sqrt(2. / self.w_h_on)
 
     def forward(self, input_x, input_y):
         """
@@ -52,6 +87,7 @@ class lstm_model(nn.Module):
         else:
             input_x = Variable(torch.LongTensor(input_x))
             input_y = Variable(torch.LongTensor(input_y))
+
         input = input_x.squeeze(1)
 
         embed_input_x = self.embedding(input) # embed_intput_x: (b_s, m_l, em_s)
