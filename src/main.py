@@ -82,7 +82,7 @@ def main():
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
     cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
-    cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm]", type = str, default='lstm')
+    cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm]", type = str, default='bilstm')
 
     args = cmd.parse_args()
     torch.manual_seed(args.seed)  # fixed the seed
@@ -144,7 +144,7 @@ def main():
         if(valid_acc > best_valid_acc):
             best_valid_acc = valid_acc
             test_acc = evaluate(test_x_idx, test_y_idx, model, batch_size)  # 在测试集上进行测试
-
+            # save model
             logging.info("epoch:{0} New Record! valid_accuracy:{1}, test_accuracy:{2}".format(epoch, valid_acc, test_acc))
 
     # finally, we evaluate valid and test dataset accuracy
