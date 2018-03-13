@@ -195,19 +195,19 @@ class cnn_model(nn.Module):
 		self.softmax = nn.LogSoftmax()
 		
 		self.l2 = args.l2
-		self.filter_size = [int(size) for size in args.filter_size.split(" ")]
-		self.filter_num = [int(num) for num in args.filter_num.split(" ")]
+		self.kernel_size = [int(size) for size in args.kernel_size.split("*")]
+		self.kernel_num = [int(num) for num in args.kernel_num.split("*")]
 		nums = 0
-		for n in self.filter_num:
+		for n in self.kernel_num:
 			nums += n		
 		self.linear = nn.Linear(nums, self.output_size)
-		self.convs = nn.ModuleList([nn.Conv2d(1,num,(size,self.embedding_size)) for (size,num) in zip(self.filter_size,self.filter_num)])
+		self.convs = nn.ModuleList([nn.Conv2d(1,num,(size,self.embedding_size)) for (size,num) in zip(self.kernel_size,self.kernel_num)])
 		
 
 	def forward(self, input_x, input_y):
 		input_x, input_y, sentence_lens = padding(input_x, input_y)
 		max_len = len(input_x[0])
-		self.poolings = nn.ModuleList([nn.MaxPool1d(max_len - size + 1,1) for size in self.filter_size ])
+		self.poolings = nn.ModuleList([nn.MaxPool1d(max_len - size + 1,1) for size in self.kernel_size ])#the output of each pooling layer is a number
 
 		if use_cuda:
 			input_x = Variable(torch.LongTensor(input_x)).cuda()
@@ -222,11 +222,12 @@ class cnn_model(nn.Module):
 		embed_input_x = self.dropout(embed_input_x)
 		embed_input_x = embed_input_x.view(embed_input_x.size(0),1,-1,embed_input_x.size(2))
 
-		v = []
+		parts = []#example:[3,4,5] [100,100,100] the dims of data though pooling layer is 100 + 100 + 100 = 300    
 		for (conv,pooling) in zip(self.convs,self.poolings):
-			v.append(pooling(conv(embed_input_x).squeeze()).view(input_x.size(0),-1))
-		x = F.relu(torch.cat(v,1))
+			parts.append(pooling(conv(embed_input_x).squeeze()).view(input_x.size(0),-1))
+		x = F.relu(torch.cat(parts,1))
 
+		# make sure the l2 norm of w less than l2
 		w = torch.mul(self.linear.weight,self.linear.weight).sum().data[0]
 		if  w > self.l2*self.l2:
 			x = torch.mul(x.weight,math.sqrt(self.l2*self.l2*1.0/w))
