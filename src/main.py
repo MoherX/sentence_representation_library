@@ -82,6 +82,9 @@ def main():
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
     cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
+    cmd.add_argument("--filter_size", help="filter_size", type=str, default="3 4 5")
+    cmd.add_argument("--filter_num", help="filter_num", type=str, default="100 100 100")
+    cmd.add_argument("--l2", help="l2", type=int, default=3)
     cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm]", type = str, default='bilstm')
 
     args = cmd.parse_args()
@@ -98,8 +101,8 @@ def main():
 
     logging.info("dict generated finished! dict size:{0}".format(word_size))
 
-    train_x_idx, train_y_idx = sentence_to_idx(lang, test_x, test_y)
-    valid_x_idx, valid_y_idx = sentence_to_idx(lang, test_x, test_y)
+    train_x_idx, train_y_idx = sentence_to_idx(lang, train_x, train_y)
+    valid_x_idx, valid_y_idx = sentence_to_idx(lang, valid_x, valid_y)
     test_x_idx, test_y_idx = sentence_to_idx(lang, test_x, test_y)
 
     logging.info('train size:{0}, valid size:{1}, test size:{2}'.format(len(train_x_idx), len(valid_x_idx), len(test_x_idx)))

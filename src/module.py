@@ -34,6 +34,9 @@ class Model(nn.Module):
         elif args.encoder == 'bilstm':
             self.encoder = bilstm_model(self.args, self.input_size, self.hidden_size, self.output_size, self.vocal_size,
                                       self.embedding_size, dropout)
+        elif args.encoder == 'cnn':
+            self.encoder = cnn_model(self.args, self.input_size, self.hidden_size, self.output_size, self.vocal_size,self.embedding_size, dropout)
+
 
     def forward(self, input_x, input_y):
         """
@@ -172,3 +175,74 @@ class bilstm_model(nn.Module):
         else:
             value, index = torch.max(predict, 1)
             return index  # outsize, cal the acc
+
+
+
+class cnn_model(nn.Module):
+
+	def __init__(self, args, input_size_, hidden_size_, output_size, vocal_size, embedding_size, dropout):
+		super(cnn_model, self).__init__()
+
+		self.input_size = input_size_
+		self.embedding_size = embedding_size
+		self.hidden_size = hidden_size_
+		self.output_size = output_size
+		self.vocal_size = vocal_size
+		self.seed = args.seed
+		self.embedding = nn.Embedding(self.vocal_size, self.embedding_size)
+		self.NLLoss = nn.NLLLoss()
+		self.dropout = nn.Dropout(dropout)
+		self.softmax = nn.LogSoftmax()
+		
+		self.l2 = args.l2
+		self.filter_size = [int(size) for size in args.filter_size.split(" ")]
+		self.filter_num = [int(num) for num in args.filter_num.split(" ")]
+		nums = 0
+		for n in self.filter_num:
+			nums += n		
+		self.linear = nn.Linear(nums, self.output_size)
+		self.convs = nn.ModuleList([nn.Conv2d(1,num,(size,self.embedding_size)) for (size,num) in zip(self.filter_size,self.filter_num)])
+		
+
+	def forward(self, input_x, input_y):
+		input_x, input_y, sentence_lens = padding(input_x, input_y)
+		max_len = len(input_x[0])
+		self.poolings = nn.ModuleList([nn.MaxPool1d(max_len - size + 1,1) for size in self.filter_size ])
+
+		if use_cuda:
+			input_x = Variable(torch.LongTensor(input_x)).cuda()
+			input_y = Variable(torch.LongTensor(input_y)).cuda()
+		else:
+			input_x = Variable(torch.LongTensor(input_x))
+			input_y = Variable(torch.LongTensor(input_y))
+
+		input = input_x.squeeze(1)
+
+		embed_input_x = self.embedding(input)  # embed_intput_x: (b_s, m_l, em_s)
+		embed_input_x = self.dropout(embed_input_x)
+		embed_input_x = embed_input_x.view(embed_input_x.size(0),1,-1,embed_input_x.size(2))
+
+		v = []
+		for (conv,pooling) in zip(self.convs,self.poolings):
+			v.append(pooling(conv(embed_input_x).squeeze()).view(input_x.size(0),-1))
+		x = F.relu(torch.cat(v,1))
+
+		w = torch.mul(self.linear.weight,self.linear.weight).sum().data[0]
+		if  w > self.l2*self.l2:
+			x = torch.mul(x.weight,math.sqrt(self.l2*self.l2*1.0/w))
+
+		predict = self.linear(x)  # predict: [1, b_s, o_s]
+		predict = self.softmax(predict.squeeze(0))  # predict.squeeze(0) [b_s, o_s]
+
+		loss = self.NLLoss(predict, input_y)
+
+		if (self.training):  # if it is in training module
+			return loss
+		else:
+			value, index = torch.max(predict, 1)
+			return index  # outsize, cal the acc
+				
+
+
+
+
