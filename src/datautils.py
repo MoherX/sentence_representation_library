@@ -14,9 +14,10 @@ import torch.nn.functional as F
 from torch import optim
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
-from torch.utils.data import Dataset
+
 
 use_cuda = torch.cuda.is_available()
+
 
 def process(path):
     '''
@@ -46,12 +47,12 @@ def preprocess(path):
     valid_path = os.path.join(path, 'valid.txt')
     test_path = os.path.join(path, 'test.txt')
 
-
     train_x, train_y = process(train_path)
     valid_x, valid_y = process(valid_path)
     test_x, test_y = process(test_path)
 
     return train_x, train_y, valid_x, valid_y, test_x, test_y
+
 
 def collate_batch(batch):
     outputs_instances = []
@@ -60,6 +61,7 @@ def collate_batch(batch):
         outputs_instances.append(key[0])
         outputs_lables.append(key[1])
     return outputs_instances, outputs_lables
+
 
 def padding(instance_x, instance_y):
     '''
@@ -81,9 +83,10 @@ def padding(instance_x, instance_y):
 
     return instance_x, instance_y, sentence_lens
 
+
 class Lang:
     def __init__(self):
-        self.word2idx = {'PAD':0, 'OOV':1}
+        self.word2idx = {'PAD': 0, 'OOV': 1}
         self.idx2word = {}
         self.word_size = 2
 
@@ -96,6 +99,7 @@ class Lang:
         if word not in self.word2idx:
             self.word2idx[word] = len(self.word2idx)
             self.word_size += 1
+            self.idx2word = self.get_idx_to_word()
 
     def add_sentence(self, sentence):
         '''
@@ -111,7 +115,7 @@ class Lang:
         get idx_to_word
         :return:
         '''
-        self.idx2word = {idx:word for word, idx in self.word2idx.items()}
+        self.idx2word = {idx: word for word, idx in self.word2idx.items()}
         return self.idx2word
 
     def sentence_to_idx(self, sentence):
@@ -126,36 +130,34 @@ class Lang:
         '''
         return self.word_size
 
-def generate_dict(lang, data):
-    '''
-    :param: lang
-    :param： data
-    :return: lang after add dict
-    '''
+    def sentence_to_idx2(self, instance_x, instance_y):
+        '''
 
-    for instance_index, instance in enumerate(data):
-        lang.add_sentence(instance)
+        :param lang:
+        :param instance_x:[]
+        :param instance_y:[]
+        :return: instance_x_idx, instance_y_idx
+        '''
+        instance_x_idx, instance_y_idx = [], []
 
-    return lang
+        for sentence_index, sentence in enumerate(instance_x):
+            instance_x_idx.append(self.sentence_to_idx(sentence))
 
-def sentence_to_idx(lang, instance_x, instance_y):
-    '''
+        for index_y, y in enumerate(instance_y):
+            instance_y_idx.append(int(y))
 
-    :param lang:
-    :param instance_x:[]
-    :param instance_y:[]
-    :return: instance_x_idx, instance_y_idx
-    '''
-    instance_x_idx, instance_y_idx = [], []
+        return instance_x_idx, instance_y_idx
 
-    for sentence_index, sentence in enumerate(instance_x):
-        instance_x_idx.append(lang.sentence_to_idx(sentence))
+    def generate_dict(self, data):
+        '''
+        :param: lang
+        :param： data
+        :return: lang after add dict
+        '''
 
-    for index_y, y in enumerate(instance_y):
-        instance_y_idx.append(int(y))
+        for instance_index, instance in enumerate(data):
+            self.add_sentence(instance)
 
-
-    return instance_x_idx, instance_y_idx
 
 def get_batch(instance_x, instance_y, batch_size, batch_lst):
     '''
@@ -179,20 +181,7 @@ def get_batch(instance_x, instance_y, batch_size, batch_lst):
         batch_instance_x_padding = Variable(torch.LongTensor(batch_instance_x_padding))
         batch_instance_y = Variable(torch.LongTensor(batch_instance_y))
 
-
     return batch_instance_x_padding, batch_instance_y
 
-class MyDataset(Dataset):
-    def __init__(self, instances, labels):
-        self.instances = instances
-        self.lables = labels
-
-    def __getitem__(self, item):
-        # return {"source": self.instances[item][0], "target": self.instances[item][1], "kbs": self.instances[item][2],
-        #         "fields": self.fields}
-        return (self.instances[item], self.lables[item])
-
-    def __len__(self):
-        return len(self.instances)
 
 
