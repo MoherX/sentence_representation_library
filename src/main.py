@@ -85,7 +85,7 @@ def main():
     cmd.add_argument("--kernel_size", help="kernel_size", type=str, default="3*4*5")
     cmd.add_argument("--kernel_num", help="kernel_num", type=str, default="100*100*100")
     cmd.add_argument("--l2", help="l2 norm", type=int, default=3)
-    cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm]", type=str, default='bilstm')
+    cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm, sum]", type=str, default='bilstm')
     cmd.add_argument("--gpu", action="store_true", help="use gpu")
 
     args = cmd.parse_args()
@@ -136,7 +136,8 @@ def main():
         logging.info("epoch:{0} begins!".format(epoch))
         for step, (batch_instance_x, batch_instance_y) in enumerate(
                 dataloader):  # 这里只是按照之前的进行自动shuffle，没有其它的要求，出来进行padding了和转换为Variable了
-
+            model.train()
+            # print batch_instance_x,batch_instance_y
             optimizer.zero_grad()  # 梯度清零
             loss = model.forward(batch_instance_x, batch_instance_y)  # 送进去forward的只是原始的idx表示，还没有padding
             loss.backward()  # 反向传播

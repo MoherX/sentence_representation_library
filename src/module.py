@@ -40,6 +40,8 @@ class Model(nn.Module):
         elif args.encoder == 'cnn':
             self.encoder = CnnModel(self.args, self.input_size, self.hidden_size, self.output_size, self.vocal_size,
                                     self.embedding_size, dropout)
+        elif args.encoder == 'sum':
+            self.encoder = SumModel(self.vocal_size, self.embedding_size, self.output_size)
 
     def forward(self, input_x, input_y):
         """
@@ -96,8 +98,6 @@ class LstmModel(nn.Module):
         else:
             input_x = Variable(torch.LongTensor(input_x))
             input_y = Variable(torch.LongTensor(input_y))
-
-        input = input_x.squeeze(1)
 
         embed_input_x = self.embedding(input)  # embed_intput_x: (b_s, m_l, em_s)
         embed_input_x = self.dropout(embed_input_x)
@@ -158,9 +158,7 @@ class BilstmModel(nn.Module):
             input_x = Variable(torch.LongTensor(input_x))
             input_y = Variable(torch.LongTensor(input_y))
 
-        input = input_x.squeeze(1)
-
-        embed_input_x = self.embedding(input)  # embed_intput_x: (b_s, m_l, em_s)
+        embed_input_x = self.embedding(input_x)  # embed_intput_x: (b_s, m_l, em_s)
         embed_input_x = self.dropout(embed_input_x)
 
         encoder_outputs, (h_last, c_last) = self.lstm(embed_input_x)
@@ -217,8 +215,6 @@ class CnnModel(nn.Module):
             input_x = Variable(torch.LongTensor(input_x))
             input_y = Variable(torch.LongTensor(input_y))
 
-        input = input_x.squeeze(1)
-
         embed_input_x = self.embedding(input)  # embed_intput_x: (b_s, m_l, em_s)
         embed_input_x = self.dropout(embed_input_x)
         embed_input_x = embed_input_x.view(embed_input_x.size(0), 1, -1, embed_input_x.size(2))
@@ -236,6 +232,52 @@ class CnnModel(nn.Module):
         predict = self.linear(x)  # predict: [1, b_s, o_s]
         predict = self.softmax(predict.squeeze(0))  # predict.squeeze(0) [b_s, o_s]
 
+        loss = self.NLLoss(predict, input_y)
+
+        if self.training:  # if it is in training module
+            return loss
+        else:
+            value, index = torch.max(predict, 1)
+            return index  # outsize, cal the acc
+
+
+class SumModel(nn.Module):
+    def __init__(self, vocal_size, embedding_size, output_size):
+        super(SumModel, self).__init__()
+        self.vocal_size = vocal_size
+        self.embedding_size = embedding_size
+        self.embedding = nn.Embedding(self.vocal_size, self.embedding_size)
+        self.output_size = output_size
+        self.linear = nn.Linear(self.embedding_size, self.output_size)
+        self.softmax = nn.LogSoftmax()
+        self.NLLoss = nn.NLLLoss()
+
+    def forward(self, input_x, input_y):
+
+        input_x, input_y, sentence_lens = padding(input_x, input_y)  # padding
+
+        if use_cuda:
+            input_x = Variable(torch.LongTensor(input_x)).cuda()
+            input_y = Variable(torch.LongTensor(input_y)).cuda()
+        else:
+            input_x = Variable(torch.LongTensor(input_x))
+            input_y = Variable(torch.LongTensor(input_y))
+
+        embed_input_x = self.embedding(input_x)  # 取出embedding
+
+        encoder_outputs = torch.zeros(len(input_y), self.embedding_size)  # 存放加和平均的句子表示
+
+        if use_cuda:
+            encoder_outputs = Variable(encoder_outputs).cuda()
+        else:
+            encoder_outputs = Variable(encoder_outputs)
+
+        for index, batch in enumerate(embed_input_x):
+            true_batch = batch[0:sentence_lens[index]]  # 根据每一个句子的实际长度取出实际batch
+            encoder_outputs[index] = torch.mean(true_batch, 0)  # 平均
+
+        predict = self.linear(encoder_outputs)
+        predict = self.softmax(predict)
         loss = self.NLLoss(predict, input_y)
 
         if self.training:  # if it is in training module
