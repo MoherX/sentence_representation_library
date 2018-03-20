@@ -22,6 +22,7 @@ import torch.nn.functional as F
 from torch import optim
 
 from MyDataset import MyDataset
+from ModelFactory import ModelFactory
 from utils import flatten
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
@@ -79,13 +80,14 @@ def main():
     cmd.add_argument("--input_size", help='input_size', type=int, default=200)
     cmd.add_argument("--hidden_size", help='hidden_size', type=int, default=200)
     cmd.add_argument("--embedding_size", help='embedding_size', type=int, default=200)
+    cmd.add_argument("--embedding_path", default="", help="pre-trained embedding path")
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
     cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
     cmd.add_argument("--kernel_size", help="kernel_size", type=str, default="3*4*5")
     cmd.add_argument("--kernel_num", help="kernel_num", type=str, default="100*100*100")
     cmd.add_argument("--l2", help="l2 norm", type=int, default=3)
-    cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm, sum]", type=str, default='bilstm')
+    cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm, sum]", type=str, default='cnn')
     cmd.add_argument("--gpu", action="store_true", help="use gpu")
 
     args = cmd.parse_args()
@@ -111,10 +113,18 @@ def main():
     test_x_idx, test_y_idx = lang.sentence_to_idx2(test_x, test_y)
 
     logging.info(
-            'train size:{0}, valid size:{1}, test size:{2}'.format(len(train_x_idx), len(valid_x_idx), len(test_x_idx)))
+        'train size:{0}, valid size:{1}, test size:{2}'.format(len(train_x_idx), len(valid_x_idx), len(test_x_idx)))
 
-    model = Model(args, args.input_size, args.hidden_size, 5, word_size, args.embedding_size,
-                  args.dropout)  # control module
+    word_embeds = None
+    if args.embedding_path:
+        word_embeds = load_pretrained_embed(args.embedding_path, word_size, args.embedding_size, lang.get_word2idx())
+
+    factory = ModelFactory(args, args.input_size, args.hidden_size, 5,
+                           word_size, args.embedding_size, args.dropout, word_embeds)
+
+    model = factory.get_model(args.encoder)
+    # model = Model(args, args.input_size, args.hidden_size, 5, word_size, args.embedding_size,
+    #               args.dropout, word_embeds)  # control module
 
     if use_cuda:
         model = model.cuda()
