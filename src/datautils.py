@@ -8,13 +8,15 @@
 
 import codecs
 import os
+
+import re
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
-
+import numpy as np
 
 use_cuda = torch.cuda.is_available()
 
@@ -89,6 +91,13 @@ class Lang:
         self.word2idx = {'PAD': 0, 'OOV': 1}
         self.idx2word = {}
         self.word_size = 2
+
+    def get_word2idx(self):
+        """
+
+        :return:
+        """
+        return self.word2idx
 
     def add_word(self, word):
         '''
@@ -184,4 +193,38 @@ def get_batch(instance_x, instance_y, batch_size, batch_lst):
     return batch_instance_x_padding, batch_instance_y
 
 
+def load_pretrained_embed(pretrained_path, word_size, word_dim, word2idx):
+    all_word_embeds = {}
+    for i, line in enumerate(codecs.open(pretrained_path, 'r')):
+        s = line.strip().split()
+        if len(s) == word_dim + 1:  # 最开始还有一个单词，所以需要 + test.txt
+            all_word_embeds[s[0]] = np.array([float(i) for i in s[1:]])
 
+    word_embeds = np.random.uniform(-1, 1, (word_size, word_dim))
+
+    c_found = 0
+    c_lower = 0
+    c_zeros = 0
+    for w in word2idx:
+        if w in all_word_embeds:  # 如果词典中的单词有embed
+            word_embeds[word2idx[w]] = all_word_embeds[w]  # word_embeds[id] = embeds  word--id--embeds
+            c_found += 1
+        elif w.lower() in all_word_embeds:  # 如果没有找到，但是小写有
+            word_embeds[word2idx[w]] = all_word_embeds[w.lower()]
+            c_lower += 1
+        elif re.sub('\d', '0', w.lower()) in all_word_embeds:
+            word_embeds[word2idx[w]] = all_word_embeds[re.sub('\d', '0', w.lower())]
+            c_zeros += 1
+
+    print('Loaded %i low resource language pretrained embeddings.' % len(all_word_embeds))
+    # 26475 / 28985 (91.3403%) words have been initialized with pretrained embeddings.
+    print(('%i / %i (%.4f%%) words have been initialized with '
+           'pretrained embeddings.') % (
+              c_found + c_lower + c_zeros, len(word2idx),
+              100. * (c_found + c_lower + c_zeros) / len(word2idx)
+          ))
+    print(('%i found directly, %i after lowercasing, '
+           '%i after lowercasing + zero.') % (
+              c_found, c_lower, c_zeros
+          ))
+    return word_embeds

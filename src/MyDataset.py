@@ -7,7 +7,7 @@ class MyDataset(Dataset):
         self.lables = labels
 
     def __getitem__(self, item):
-        # return {"source": self.instances[item][0], "target": self.instances[item][1], "kbs": self.instances[item][2],
+        # return {"source": self.instances[item][0], "target": self.instances[item][test.txt], "kbs": self.instances[item][2],
         #         "fields": self.fields}
         return (self.instances[item], self.lables[item])
 
