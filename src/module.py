@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2018/3/7 下午12:28
 # @Author  : yizhen
-# @Site    : 
+# @Site    :
 # @File    : module.py
 # @Software: PyCharm
 
@@ -34,6 +34,7 @@ class Model(nn.Module):
         self.softmax = nn.LogSoftmax()
         self.use_cuda = args.gpu and torch.cuda.is_available()
         self.embedding = nn.Embedding(self.vocal_size, self.embedding_size)
+        print self.embedding
         self.dropout_rate = dropout
         self.seed = args.seed
         torch.manual_seed(self.seed)  # fixed the seed
@@ -62,16 +63,14 @@ class LstmModel(Model):
         self.lstm.all_weights[0][0] = Parameter(torch.randn(self.w_i_in, self.w_i_on)) * np.sqrt(2. / self.w_i_on)
         self.lstm.all_weights[0][1] = Parameter(torch.randn(self.w_h_in, self.w_h_on)) * np.sqrt(2. / self.w_h_on)
 
-    def forward(self, input_x, input_y):
+    def forward(self, input_x, input_char, input_y):
         """
         intput_x: b_s instances， 没有进行padding和Variable
         :param input:
         :return:
         """
-        # input = input_x.squeeze(test.txt)
 
-        #
-        input_x, input_y, sentence_lens = padding(input_x, input_y)
+        input_x, batch_chars, input_y, sentence_lens, word_lens = padding(input_x, input_char, input_y)
 
         if self.use_cuda:
             input_x = Variable(torch.LongTensor(input_x)).cuda()
@@ -112,15 +111,15 @@ class BilstmModel(Model):
                             dropout=self.dropout_rate,
                             bidirectional=True)
 
-    def forward(self, input_x, input_y):
+    def forward(self, input_x, input_char, input_y):
         """
         intput_x: b_s instances， 没有进行padding和Variable
-        :param input:
+        :param input_y:
+        :param input_char:
+        :param input_x:
         :return:
         """
-
-        #
-        input_x, input_y, sentence_lens = padding(input_x, input_y)
+        input_x, batch_chars, input_y, sentence_lens, word_lens = padding(input_x, input_char, input_y)
 
         if self.use_cuda:
             input_x = Variable(torch.LongTensor(input_x)).cuda()
@@ -164,8 +163,8 @@ class CnnModel(Model):
         self.convs = nn.ModuleList(
             [nn.Conv2d(1, num, (size, self.embedding_size)) for (size, num) in zip(self.kernel_size, self.kernel_num)])
 
-    def forward(self, input_x, input_y):
-        input_x, input_y, sentence_lens = padding(input_x, input_y)
+    def forward(self, input_x, input_char, input_y):
+        input_x, batch_chars, input_y, sentence_lens, word_lens = padding(input_x, input_char, input_y)
         max_len = len(input_x[0])
         self.poolings = nn.ModuleList([nn.MaxPool1d(max_len - size + 1, 1) for size in
                                        self.kernel_size])  # the output of each pooling layer is a number
@@ -198,7 +197,7 @@ class CnnModel(Model):
 
         loss = self.NLLoss(predict, input_y)
 
-        if (self.training):  # if it is in training module
+        if self.training:  # if it is in training module
             return loss
         else:
             value, index = torch.max(predict, 1)
@@ -213,9 +212,9 @@ class SumModel(Model):
                                        word_embeds)
         self.linear = nn.Linear(self.embedding_size, self.output_size)
 
-    def forward(self, input_x, input_y):
+    def forward(self, input_x, input_char, input_y):
 
-        input_x, input_y, sentence_lens = padding(input_x, input_y)  # padding
+        input_x, batch_chars, input_y, sentence_lens, word_lens = padding(input_x, input_char, input_y)
 
         if self.use_cuda:
             input_x = Variable(torch.LongTensor(input_x)).cuda()

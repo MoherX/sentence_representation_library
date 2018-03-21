@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2018/3/7 上午9:03
 # @Author  : yizhen
-# @Site    : 
+# @Site    :
 # @File    : datautils.py
 # @Software: PyCharm
 
@@ -21,51 +21,19 @@ import numpy as np
 use_cuda = torch.cuda.is_available()
 
 
-def process(path):
-    '''
-
-    :param path:
-    :return: x [sentence_1, sentence_2......, sentence_n], y[index_1, index_2....., index_n]
-    '''
-    data_x, data_y = [], []
-    with codecs.open(path, 'r', encoding='utf-8') as fp:
-        fp_content = fp.read().strip().split('\n')
-        for instance_index, instance in enumerate(fp_content):
-            instance_x = instance[6:]
-            instance_y = instance[0]
-            data_x.append(instance_x)
-            data_y.append(instance_y)
-
-    return data_x, data_y
-
-
-def preprocess(path):
-    '''
-
-    :param path: path_dir
-    :return: train_x, train_y, valid_x, valid_y, test_x, test_y: format list[]
-    '''
-    train_path = os.path.join(path, 'train.txt')
-    valid_path = os.path.join(path, 'valid.txt')
-    test_path = os.path.join(path, 'test.txt')
-
-    train_x, train_y = process(train_path)
-    valid_x, valid_y = process(valid_path)
-    test_x, test_y = process(test_path)
-
-    return train_x, train_y, valid_x, valid_y, test_x, test_y
-
-
 def collate_batch(batch):
-    outputs_instances = []
+    outputs_words = []
+    outputs_chars = []
     outputs_lables = []
     for key in batch:
-        outputs_instances.append(key[0])
-        outputs_lables.append(key[1])
-    return outputs_instances, outputs_lables
+        outputs_words.append(key[0])
+        outputs_chars.append(key[1])
+        for label in key[2]:
+            outputs_lables.append(label)
+    return outputs_words, outputs_chars, outputs_lables
 
 
-def padding(instance_x, instance_y):
+def padding(instance_x, batch_chars, instance_y):
     '''
     return padded data
     :param instance_x:  []
@@ -74,157 +42,168 @@ def padding(instance_x, instance_y):
     '''
     # lst = sorted(lst, lambda )
     lst = range(len(instance_x))
+    # 按照长度排序
     lst = sorted(lst, key=lambda d: -len(instance_x[d]))
-    instance_x = [instance_x[index] for index in lst]  # be sorted in decreasing order for packed
-    instance_y = [instance_y[index] for index in lst]
+    # 重新排序过后的
+    instance_x_sorted = [instance_x[index] for index in lst]  # be sorted in decreasing order for packed
+    instance_y_sorted = [instance_y[index] for index in lst]
+    # 记录padding之前的长度
+    sentence_lens = [len(sentence) for sentence in instance_x_sorted]  # for pack-padded deal
+    max_len = max(sentence_lens)
+    # 根据词典，使用1来进行padding
+    instance_x_sorted = [sentence + (max_len - len(sentence)) * [0] for sentence in instance_x_sorted]
 
-    sentence_lens = [len(sentence) for sentence in instance_x]  # for pack-padded deal
+    # print instance_x_sorted
+    # print instance_y_sorted
 
-    max_len = max(len(sentence) for sentence in instance_x)
-    instance_x = [sentence + (max_len - len(sentence)) * [0] for sentence in instance_x]
+    batch_chars_sorted = [batch_chars[index] for index in lst]  # 首先根据句子长度进行交换
+    # print batch_chars
 
-    return instance_x, instance_y, sentence_lens
+    words_lens = []
+    character_padding_res = []
+    # 对character级别进行padding
+    for index, sentence in enumerate(batch_chars_sorted):
+        # print sentence
+        c_lst = range(len(sentence))
+        # print c_lst
+        c_lst = sorted(c_lst, key=lambda d: -len(sentence[d]))
+        # print c_lst
+        sentence_sorted = [sentence[index] for index in c_lst]
+        # print sentence_sorted
+        words_len = [len(word) for word in sentence_sorted]
+        # print words_len
+        words_lens.append(words_len)
+        # print words_lens
+        max_word_len = max(words_len)
+        # print max_word_len
+        sentence_sorted = [word + (max_word_len - len(word)) * [0] for word in sentence_sorted]
+        # print sentence_sorted
+        character_padding_res.append(sentence_sorted)
 
-
-class Lang:
-    def __init__(self):
-        self.word2idx = {'PAD': 0, 'OOV': 1}
-        self.idx2word = {}
-        self.word_size = 2
-
-    def get_word2idx(self):
-        """
-
-        :return:
-        """
-        return self.word2idx
-
-    def add_word(self, word):
-        '''
-        add word to dict
-        :param word:
-        :return:
-        '''
-        if word not in self.word2idx:
-            self.word2idx[word] = len(self.word2idx)
-            self.word_size += 1
-            self.idx2word = self.get_idx_to_word()
-
-    def add_sentence(self, sentence):
-        '''
-        add sentence to dict
-        :param sentence:
-        :return:
-        '''
-        for word in sentence.strip().split():
-            self.add_word(word)
-
-    def get_idx_to_word(self):
-        '''
-        get idx_to_word
-        :return:
-        '''
-        self.idx2word = {idx: word for word, idx in self.word2idx.items()}
-        return self.idx2word
-
-    def sentence_to_idx(self, sentence):
-        '''
-        '''
-        return [self.word2idx.get(word, 1) for word in sentence.split()]
-
-    def get_word_size(self):
-        '''
-
-        :return: word_size
-        '''
-        return self.word_size
-
-    def sentence_to_idx2(self, instance_x, instance_y):
-        '''
-
-        :param lang:
-        :param instance_x:[]
-        :param instance_y:[]
-        :return: instance_x_idx, instance_y_idx
-        '''
-        instance_x_idx, instance_y_idx = [], []
-
-        for sentence_index, sentence in enumerate(instance_x):
-            instance_x_idx.append(self.sentence_to_idx(sentence))
-
-        for index_y, y in enumerate(instance_y):
-            instance_y_idx.append(int(y))
-
-        return instance_x_idx, instance_y_idx
-
-    def generate_dict(self, data):
-        '''
-        :param: lang
-        :param： data
-        :return: lang after add dict
-        '''
-
-        for instance_index, instance in enumerate(data):
-            self.add_sentence(instance)
+    return instance_x_sorted, character_padding_res, instance_y_sorted, sentence_lens, words_lens
 
 
-def get_batch(instance_x, instance_y, batch_size, batch_lst):
-    '''
-    # here, we get the padding。
-    :param instance_x: [sentence_1, sentence_2,,,,,]
-    :param instance_y: [gold_1, gold_2,,,,,]
-    :param batch_size:[] batch_size
-    :param batch_lst [] batch_lst ,batch的lst序号
+def normalize_word(word):
+    """
+    讲英语单词中的数字全部变为0
+    :param word:
     :return:
-    '''
-    batch_instance_x = [instance_x[index] for index in batch_lst]
-    batch_instance_y = [instance_y[index] for index in batch_lst]
-    max_length = max([len(sentence) for sentence in batch_instance_x])
-
-    # padding
-    batch_instance_x_padding = [[sentence + (max_length - len(sentence)) * [0]] for sentence in batch_instance_x]
-    if use_cuda:
-        batch_instance_x_padding = Variable(torch.LongTensor(batch_instance_x_padding)).cuda()
-        batch_instance_y = Variable(torch.LongTensor(batch_instance_y)).cuda()
-    else:
-        batch_instance_x_padding = Variable(torch.LongTensor(batch_instance_x_padding))
-        batch_instance_y = Variable(torch.LongTensor(batch_instance_y))
-
-    return batch_instance_x_padding, batch_instance_y
+    """
+    new_word = ""
+    for char in word:
+        if char.isdigit():
+            new_word += '0'
+        else:
+            new_word += char
+    return new_word
 
 
-def load_pretrained_embed(pretrained_path, word_size, word_dim, word2idx):
-    all_word_embeds = {}
-    for i, line in enumerate(codecs.open(pretrained_path, 'r')):
-        s = line.strip().split()
-        if len(s) == word_dim + 1:  # 最开始还有一个单词，所以需要 + test.txt
-            all_word_embeds[s[0]] = np.array([float(i) for i in s[1:]])
+def read_instance(input_file, word_alphabet, char_alphabet, label_alphabet, number_normalized):
+    in_lines = open(input_file, 'r').readlines()
+    instence_texts = []
+    instence_Ids = []
+    words = []
+    chars = []
+    labels = []
+    word_Ids = []
+    char_Ids = []
+    label_Ids = []
+    for line in in_lines:
+        line = line.strip()
+        if line:
+            pairs = line.strip().split()
+            label = pairs[0]
+            labels.append(label)
+            label_Ids.append(label_alphabet.get_index(label))
+            for word in pairs[2:]:
+                if number_normalized:
+                    word = normalize_word(word)
+                words.append(word)
+                word_Ids.append(word_alphabet.get_index(word))
+                char_list = []
+                char_Id = []
+                for char in word:
+                    char_list.append(char)
+                for char in char_list:
+                    char_Id.append(char_alphabet.get_index(char))
+                chars.append(char_list)
+                char_Ids.append(char_Id)
+            instence_texts.append([words, chars, labels])
+            instence_Ids.append([word_Ids, char_Ids, label_Ids])
+            words = []
+            chars = []
+            labels = []
+            word_Ids = []
+            char_Ids = []
+            label_Ids = []
+    return instence_texts, instence_Ids
 
-    word_embeds = np.random.uniform(-1, 1, (word_size, word_dim))
 
-    c_found = 0
-    c_lower = 0
-    c_zeros = 0
-    for w in word2idx:
-        if w in all_word_embeds:  # 如果词典中的单词有embed
-            word_embeds[word2idx[w]] = all_word_embeds[w]  # word_embeds[id] = embeds  word--id--embeds
-            c_found += 1
-        elif w.lower() in all_word_embeds:  # 如果没有找到，但是小写有
-            word_embeds[word2idx[w]] = all_word_embeds[w.lower()]
-            c_lower += 1
-        elif re.sub('\d', '0', w.lower()) in all_word_embeds:
-            word_embeds[word2idx[w]] = all_word_embeds[re.sub('\d', '0', w.lower())]
-            c_zeros += 1
+def norm2one(vec):
+    root_sum_square = np.sqrt(np.sum(np.square(vec)))
+    return vec / root_sum_square
 
-    print('Loaded %i low resource language pretrained embeddings.' % len(all_word_embeds))
-    # 26475 / 28985 (91.3403%) words have been initialized with pretrained embeddings.
-    print(('%i / %i (%.4f%%) words have been initialized with '
-           'pretrained embeddings.') % (
-              c_found + c_lower + c_zeros, len(word2idx),
-              100. * (c_found + c_lower + c_zeros) / len(word2idx)
-          ))
-    print(('%i found directly, %i after lowercasing, '
-           '%i after lowercasing + zero.') % (
-              c_found, c_lower, c_zeros
-          ))
-    return word_embeds
+
+def load_pretrain_emb(embedding_path):
+    embedd_dim = -1
+    embedd_dict = dict()
+    with open(embedding_path, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if len(line) == 0:
+                continue
+            tokens = line.split()
+            # 除去最开始的单词
+            if embedd_dim < 0:
+                embedd_dim = len(tokens) - 1
+            else:
+                assert (embedd_dim + 1 == len(tokens))
+            embedd = np.empty([1, embedd_dim])
+            embedd[:] = tokens[1:]
+            embedd_dict[tokens[0].decode('utf-8')] = embedd
+    return embedd_dict, embedd_dim
+
+
+def build_pretrain_embedding(embedding_path, word_alphabet, embedd_dim=100, norm=True):
+    """
+    构建预训练向量
+    :param embedding_path:
+    :param word_alphabet:
+    :param embedd_dim:
+    :param norm:
+    :return:
+    """
+    embedd_dict = dict()
+
+    # 加载文件中有的预训练向量
+    if embedding_path is not None:
+        embedd_dict, embedd_dim = load_pretrain_emb(embedding_path)
+
+    alphabet_size = word_alphabet.size()
+    scale = np.sqrt(3.0 / embedd_dim)
+    pretrain_emb = np.empty([word_alphabet.size(), embedd_dim])
+    perfect_match = 0
+    case_match = 0
+    not_match = 0
+
+    for word, index in word_alphabet.iteritems():
+        if word in embedd_dict:
+            if norm:
+                pretrain_emb[index, :] = norm2one(embedd_dict[word])
+            else:
+                pretrain_emb[index, :] = embedd_dict[word]
+            perfect_match += 1
+        elif word.lower() in embedd_dict:
+            if norm:
+                pretrain_emb[index, :] = norm2one(embedd_dict[word.lower()])
+            else:
+                pretrain_emb[index, :] = embedd_dict[word.lower()]
+            case_match += 1
+        else:
+            pretrain_emb[index, :] = np.random.uniform(-scale, scale, [1, embedd_dim])
+            not_match += 1
+
+    pretrained_size = len(embedd_dict)
+    print("Embedding:\n     pretrain word:%s, prefect match:%s, case_match:%s, oov:%s, oov%%:%s" % (
+        pretrained_size, perfect_match, case_match, not_match, (not_match + 0.) / alphabet_size))
+    return pretrain_emb, embedd_dim
