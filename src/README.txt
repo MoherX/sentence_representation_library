@@ -1,5 +1,0 @@
-DONE:
-LSTM、BILSTM、CNN
-
-TODO:
-Tree-LSTM、Bag-of-words、GRU
