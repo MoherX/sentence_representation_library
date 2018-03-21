@@ -119,10 +119,10 @@ def main():
     if args.embedding_path:
         word_embeds = load_pretrained_embed(args.embedding_path, word_size, args.embedding_size, lang.get_word2idx())
 
-    factory = ModelFactory(args, args.input_size, args.hidden_size, 5,
-                           word_size, args.embedding_size, args.dropout, word_embeds)
+    factory = ModelFactory()
 
-    model = factory.get_model(args.encoder)
+    model = factory.get_model(args.encoder, args, args.input_size, args.hidden_size, 5,
+                              word_size, args.embedding_size, args.dropout, word_embeds)
     # model = Model(args, args.input_size, args.hidden_size, 5, word_size, args.embedding_size,
     #               args.dropout, word_embeds)  # control module
 
