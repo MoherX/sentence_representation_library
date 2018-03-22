@@ -137,6 +137,8 @@ def main():
 
     # create visdom enviroment
     vis = Visdom(env=data.HP_model_name)
+    # check visdom connection
+    vis_use = vis.check_connection()
 
     if data.HP_use_char and data.HP_char_features == "bilstm":
         data.input_size = data.HP_word_emb_dim + 2 * data.HP_char_hidden_dim
@@ -154,7 +156,7 @@ def main():
     if use_cuda:
         model = model.cuda()
 
-    # Dataset、DataLoader for batch
+    # Dataset、DataLoader for Batch
     dataset = MyDataset(data.train_Ids)
     dataloader = DataLoader(dataset=dataset, batch_size=data.HP_batch_size, shuffle=True, collate_fn=collate_batch)
 
@@ -181,8 +183,10 @@ def main():
 
         logging.info("epoch:{0} loss:{1}".format(epoch, round_loss.data[0]))
 
-        vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor(round_loss.data), win='loss',
-                 update='append' if epoch > 0 else None)
+        # draw loss
+        if vis_use:
+            vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor(round_loss.data), win='loss',
+                     update='append' if epoch > 0 else None)
 
         # use current model to test on the dev set
         valid_acc = evaluate(data.dev_Ids, model, data.HP_batch_size)
@@ -193,8 +197,11 @@ def main():
             # test on the test set
             test_acc = evaluate(data.test_Ids, model, data.HP_batch_size)
 
-            vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor([test_acc]), win='test_acc',
-                     update='append' if epoch > 0 else None)
+            # draw test acc
+            if vis_use:
+                vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor([test_acc]), win='test_acc',
+                         update='append' if epoch > 0 else None)
+
             # save model
             torch.save(model.state_dict(), "../model/" + data.HP_model_name + ".model")
             logging.info(
