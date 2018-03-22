@@ -145,7 +145,7 @@ def main():
     # if use_char and args.char_encoder is "bilstm":
     #     input_size = data.word_emb_dim + 2 * data.HP_char_hidden_dim
     # else:
-    data.input_size = data.word_emb_dim
+    data.input_size = data.HP_word_emb_dim
 
     # create factory and type create the model according to the encoder
     factory = ModelFactory()
