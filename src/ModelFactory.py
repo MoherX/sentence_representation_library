@@ -3,12 +3,12 @@ from module import LstmModel, BilstmModel, CnnModel, SumModel
 
 class ModelFactory:
 
-    def get_model(self, data, args):
+    def get_model(self, data):
         if data.HP_encoder_type == 'lstm':
-            return LstmModel(args, data)
+            return LstmModel(data)
         elif data.HP_encoder_type == 'bilstm':
-            return BilstmModel(args, data)
+            return BilstmModel(data)
         elif data.HP_encoder_type == 'cnn':
-            return CnnModel(args, data)
+            return CnnModel(data)
         elif data.HP_encoder_type == 'sum':
-            return SumModel(args, data)
+            return SumModel(data)

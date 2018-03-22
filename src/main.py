@@ -75,10 +75,10 @@ def evaluate(ids, model, batch_size):
 
 def main():
     cmd = argparse.ArgumentParser("sentence_representation_library")
-    # dataset
     cmd.add_argument("--train", help='train data_path', type=str, default='../data2/train.txt')
     cmd.add_argument("--dev", help='dev data_path', type=str, default='../data2/valid.txt')
     cmd.add_argument("--test", help='test data_path', type=str, default='../data2/test.txt')
+    cmd.add_argument("--number_normalized", help='number_normalized', action="store_true")
     cmd.add_argument("--batch_size", help='batch_size', type=int, default=2)
     cmd.add_argument("--max_epoch", help='max_epoch', type=int, default=100)
     cmd.add_argument("--hidden_size", help='hidden_size', type=int, default=200)
@@ -87,8 +87,6 @@ def main():
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
     cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
-    cmd.add_argument("--char_dropout", help="char_dropout", type=float, default=0.5)
-
     cmd.add_argument("--kernel_size", help="kernel_size", type=str, default="3*4*5")
     cmd.add_argument("--kernel_num", help="kernel_num", type=str, default="100*100*100")
     cmd.add_argument("--l2", help="l2 norm", type=int, default=3)
@@ -99,10 +97,10 @@ def main():
     cmd.add_argument("--load_model", default="", help="model path")
     # character
     cmd.add_argument("--char_encoder", help="options:[bilstm, cnn]", type=str, default='bilstm')
-    # char lstm
     cmd.add_argument("--char_hidden_dim", help="char_hidden_dim", type=int, default=50)
     cmd.add_argument("--char_embedding_path", help='char_embedding_path', default="")
     cmd.add_argument("--char_embedding_size", help='char_embedding_size', type=int, default=50)
+    cmd.add_argument("--char_dropout", help="char_dropout", type=float, default=0.5)
 
     args = cmd.parse_args()
 
@@ -113,18 +111,14 @@ def main():
     # gpu use
     use_cuda = torch.cuda.is_available() and args.gpu
 
-    if args.char_encoder:
-        use_char = True
-    else:
-        use_char = False
+    # char use
+    use_char = True if args.char_encoder else False
 
-    data = Data(args, use_char, use_cuda)
+    data = Data(args)
 
     # set some hyper parameters
-    data.number_normalized = True  # replace all the number with zero
-    data.HP_encoder_type = args.encoder  # encode type
-    data.HP_model_name = args.model_name  # model name
-    data.HP_optim = args.optim  # SGD or Adam
+    data.HP_use_char = use_char
+    data.HP_gpu = use_cuda
 
     # build word character label alphabet
     data.build_alphabet(args.train)
@@ -144,15 +138,14 @@ def main():
     # create visdom enviroment
     vis = Visdom(env=data.HP_model_name)
 
-    if use_char and args.char_encoder == "bilstm":
-        print data.HP_word_emb_dim + 2 * data.HP_char_hidden_dim
+    if data.HP_use_char and data.HP_char_features == "bilstm":
         data.input_size = data.HP_word_emb_dim + 2 * data.HP_char_hidden_dim
     else:
         data.input_size = data.HP_word_emb_dim
 
     # create factory and type create the model according to the encoder
     factory = ModelFactory()
-    model = factory.get_model(data, args)
+    model = factory.get_model(data)
 
     # load model
     if args.load_model:

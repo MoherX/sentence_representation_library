@@ -20,21 +20,20 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 class Model(nn.Module):
-    def __init__(self, args, data):
+    def __init__(self, data):
         super(Model, self).__init__()
         self.input_size = data.input_size
         self.hidden_size = data.HP_hidden_dim
         self.output_size = data.label_alphabet_size
         self.vocal_size = data.word_alphabet_size
         self.embedding_size = data.HP_word_emb_dim
-        self.args = args
         self.NLLoss = nn.NLLLoss()
         self.dropout = nn.Dropout(data.HP_dropout)
         self.softmax = nn.LogSoftmax()
-        self.use_cuda = args.gpu and torch.cuda.is_available()
+        self.use_cuda = data.HP_gpu
         self.embedding = nn.Embedding(self.vocal_size, self.embedding_size)
         self.dropout_rate = data.HP_dropout
-        self.seed = args.seed
+        self.seed = data.HP_seed
         self.use_char = data.HP_use_char
         print "data.HP_use_char"
         print data.HP_use_char
@@ -50,8 +49,8 @@ class Model(nn.Module):
 
 
 class LstmModel(Model):
-    def __init__(self, args, data):
-        super(LstmModel, self).__init__(args, data)
+    def __init__(self, data):
+        super(LstmModel, self).__init__(data)
 
         self.linear = nn.Linear(self.hidden_size, self.output_size)
 
@@ -109,8 +108,8 @@ class LstmModel(Model):
 
 
 class BilstmModel(Model):
-    def __init__(self, args, data):
-        super(BilstmModel, self).__init__(args, data)
+    def __init__(self, data):
+        super(BilstmModel, self).__init__(data)
 
         self.linear = nn.Linear(self.hidden_size * 2, self.output_size)
         self.lstm = nn.LSTM(input_size=self.input_size,
@@ -165,11 +164,11 @@ class BilstmModel(Model):
 
 class CnnModel(Model):
 
-    def __init__(self, args, data):
-        super(CnnModel, self).__init__(args, data)
-        self.l2 = args.l2
-        self.kernel_size = [int(size) for size in args.kernel_size.split("*")]
-        self.kernel_num = [int(num) for num in args.kernel_num.split("*")]
+    def __init__(self, data):
+        super(CnnModel, self).__init__(data)
+        self.l2 = data.HP_l2
+        self.kernel_size = [int(size) for size in data.HP_kernel_size.split("*")]
+        self.kernel_num = [int(num) for num in data.HP_kernel_num.split("*")]
         nums = 0
         for n in self.kernel_num:
             nums += n
@@ -219,8 +218,8 @@ class CnnModel(Model):
 
 
 class SumModel(Model):
-    def __init__(self, args, data):
-        super(SumModel, self).__init__(args, data)
+    def __init__(self, data):
+        super(SumModel, self).__init__(data)
         self.linear = nn.Linear(self.input_size, self.output_size)
 
     def forward(self, input_x, input_char, input_y):
