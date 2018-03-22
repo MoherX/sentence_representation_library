@@ -7,68 +7,66 @@ import os
 class Alphabet:
     def __init__(self, name, label=False, keep_growing=True):
         self.__name = name
-        self.UNKNOWN = "</unk>"  # 为登录标签</unk>
-        self.PADDING = "</pad>"
-        self.label = label
-        self.instance2index = {}  # 字典
-        self.instances = []
+        self.PADDING = "</pad>"  # padding label
+        self.UNKNOWN = "</unk>"  # out of vacab label
+        self.label = label  # if label alphabet
+        self.instance2index = {}
+        self.instances = []  # if not label,[</pad>,</unk>,......]
         self.keep_growing = keep_growing
 
-        self.next_index = 0
+        self.next_index = 0  # start from index 0
         if not self.label:
-            self.add(self.PADDING)
-            self.add(self.UNKNOWN)
+            self.add(self.PADDING)  # default index 0
+            self.add(self.UNKNOWN)  # default index 1
 
     def clear(self, keep_growing=True):
         """
-        重置 reset
+        reset
         :param keep_growing:
         :return:
         """
         self.instance2index = {}
         self.instances = []
         self.keep_growing = keep_growing
-
         self.next_index = 0
 
     def add(self, instance):
         """
-        增加一个instance，并指定id
+        add one instance，and make sure of id
         :param instance:
         :return:
         """
-        # 如果不在目前的词典之中
         if instance not in self.instance2index:
-            self.instances.append(instance)  # 在列表后面添加该instance
-            self.instance2index[instance] = self.next_index  # 在词典中添加。并指定id
+            self.instances.append(instance)
+            self.instance2index[instance] = self.next_index
             self.next_index += 1
 
     def get_index(self, instance):
         """
-        找instance对应的id
+        get index
         :param instance:
         :return:
         """
         try:
             return self.instance2index[instance]
         except KeyError:
-            if self.keep_growing:  # 如果keep growing，直接新增
+            if self.keep_growing:
                 index = self.next_index
                 self.add(instance)
                 return index
             else:
-                return self.instance2index[self.UNKNOWN]
+                return self.instance2index[self.UNKNOWN]  # index 1 (label will not be in this case)
 
     def get_instance(self, index):
         """
-        根据id找instance
+        get instance
         :param index:
         :return:
         """
         try:
             return self.instances[index]
         except IndexError:
-            return self.instances[1]
+            return self.instances[1]  # unknown </unk>
 
     def size(self):
         return len(self.instances)

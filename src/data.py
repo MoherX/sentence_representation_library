@@ -14,12 +14,13 @@ PADDING = "</pad>"
 class Data:
     def __init__(self, args, use_char, use_gpu):
         self.number_normalized = True
-        self.word_alphabet = Alphabet('word')  # 词语表
-        self.char_alphabet = Alphabet('character')  # 字母表
-        self.label_alphabet = Alphabet('label', True)  # 标记表
 
-        self.char_features = args.char_encoder
+        # Alphabet
+        self.word_alphabet = Alphabet('word')
+        self.char_alphabet = Alphabet('character')
+        self.label_alphabet = Alphabet('label', True)
 
+        # data
         self.train_texts = []
         self.dev_texts = []
         self.test_texts = []
@@ -30,8 +31,6 @@ class Data:
 
         self.input_size = 0
 
-        self.word_emb_dim = args.embedding_size
-        self.char_emb_dim = args.char_embedding_size
         self.pretrain_word_embedding = None
         self.pretrain_char_embedding = None
 
@@ -39,32 +38,34 @@ class Data:
         self.char_alphabet_size = 0
         self.label_alphabet_size = 0
 
-        # hyper parameters 超参数
+        # hyper parameters
+        self.HP_word_emb_dim = args.embedding_size
+        self.HP_char_emb_dim = args.char_embedding_size
         self.HP_iteration = args.max_epoch
         self.HP_batch_size = args.batch_size
-        # self.HP_average_batch_loss = False
         self.HP_char_hidden_dim = args.char_hidden_dim
         self.HP_hidden_dim = args.hidden_size
         self.HP_dropout = args.dropout
-        # self.HP_lstm_layer = 1
-        # self.HP_bilstm = True
         self.HP_use_char = use_char
+        self.HP_char_features = args.char_encoder
         self.HP_gpu = use_gpu
         self.HP_lr = args.lr
-        # self.HP_lr_decay = 0.05
-        # self.HP_clip = None
-        # self.HP_momentum = 0
         self.HP_model_name = ""
         self.HP_encoder_type = ""
         self.HP_optim = ""
+        # self.HP_lr_decay = 0.05
+        # self.HP_clip = None
+        # self.HP_momentum = 0
+        # self.HP_lstm_layer = 1
+        # self.HP_bilstm = True
 
     def show_data_summary(self):
         print("DATA SUMMARY START:")
         print("     Word  alphabet size: %s" % self.word_alphabet_size)
         print("     Char  alphabet size: %s" % self.char_alphabet_size)
         print("     Label alphabet size: %s" % self.label_alphabet_size)
-        print("     Word embedding size: %s" % self.word_emb_dim)
-        print("     Char embedding size: %s" % self.char_emb_dim)
+        print("     Word embedding size: %s" % self.HP_word_emb_dim)
+        print("     Char embedding size: %s" % self.HP_char_emb_dim)
         print("     Train instance number: %s" % (len(self.train_texts)))
         print("     Dev   instance number: %s" % (len(self.dev_texts)))
         print("     Test  instance number: %s" % (len(self.test_texts)))
@@ -76,7 +77,7 @@ class Data:
         print("     Hyper             GPU: %s" % self.HP_gpu)
         print("     Hyper        use_char: %s" % self.HP_use_char)
         if self.HP_use_char:
-            print("             Char_features: %s" % self.char_features)
+            print("             Char_features: %s" % self.HP_char_features)
         print("DATA SUMMARY END.")
         sys.stdout.flush()
 
@@ -100,7 +101,7 @@ class Data:
 
     def extend_word_char_alphabet(self, input_file_list):
         """
-        更新词语表和字母表
+
         :param
         :return:
         """
@@ -151,8 +152,8 @@ class Data:
         :param emb_path:
         :return:
         """
-        self.pretrain_word_embedding, self.word_emb_dim = build_pretrain_embedding(emb_path, self.word_alphabet,
-                                                                                   self.word_emb_dim)
+        self.pretrain_word_embedding, self.HP_word_emb_dim = build_pretrain_embedding(emb_path, self.word_alphabet,
+                                                                                      self.HP_word_emb_dim)
 
     def build_char_pretrain_emb(self, emb_path):
         """
@@ -161,5 +162,5 @@ class Data:
         :return:
         """
 
-        self.pretrain_char_embedding, self.char_emb_dim = build_pretrain_embedding(emb_path, self.char_alphabet,
-                                                                                   self.char_emb_dim)
+        self.pretrain_char_embedding, self.HP_char_emb_dim = build_pretrain_embedding(emb_path, self.char_alphabet,
+                                                                                      self.HP_char_emb_dim)
