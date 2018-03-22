@@ -28,6 +28,8 @@ class Data:
         self.dev_Ids = []
         self.test_Ids = []
 
+        self.input_size = 0
+
         self.word_emb_dim = args.embedding_size
         self.char_emb_dim = args.char_embedding_size
         self.pretrain_word_embedding = None
@@ -52,6 +54,9 @@ class Data:
         # self.HP_lr_decay = 0.05
         # self.HP_clip = None
         # self.HP_momentum = 0
+        self.HP_model_name = ""
+        self.HP_encoder_type = ""
+        self.HP_optim = ""
 
     def show_data_summary(self):
         print("DATA SUMMARY START:")
