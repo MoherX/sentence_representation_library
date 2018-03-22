@@ -46,6 +46,7 @@ class Data:
         self.HP_char_hidden_dim = args.char_hidden_dim
         self.HP_hidden_dim = args.hidden_size
         self.HP_dropout = args.dropout
+        self.HP_char_dropout = args.char_dropout
         self.HP_use_char = use_char
         self.HP_char_features = args.char_encoder
         self.HP_gpu = use_gpu
