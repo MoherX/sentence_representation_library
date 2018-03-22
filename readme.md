@@ -6,6 +6,7 @@ Welcome to star this repository!
 
 ## Requirement:
 Python : 2.7
+
 PyTorch : 0.3.0
 
 
@@ -16,9 +17,5 @@ PyTorch : 0.3.0
 [Neural Sequence labeling model implemented using PyTorch
 ](https://github.com/jiesutd/PyTorchSeqLabel)
 
-<!--## Author
-* [覃立波 libo Qin](http://ir.hit.edu.cn/~lbqin/)
-* [蔡碧波 bibo Cai](http://ir.hit.edu.cn/~bbcai/)
-* [吴洋 yang Wu](http://ir.hit.edu.cn/~ywu/)
-* [冯夏冲 xiachong Feng](http://ir.hit.edu.cn/~xiachongfeng/)-->
+
 

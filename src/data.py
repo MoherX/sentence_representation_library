@@ -12,8 +12,7 @@ PADDING = "</pad>"
 
 
 class Data:
-    def __init__(self, args, use_char, use_gpu):
-        self.number_normalized = True
+    def __init__(self, args):
 
         # Alphabet
         self.word_alphabet = Alphabet('word')
@@ -46,13 +45,20 @@ class Data:
         self.HP_char_hidden_dim = args.char_hidden_dim
         self.HP_hidden_dim = args.hidden_size
         self.HP_dropout = args.dropout
-        self.HP_use_char = use_char
+        self.HP_char_dropout = args.char_dropout
+        self.HP_use_char = False
         self.HP_char_features = args.char_encoder
-        self.HP_gpu = use_gpu
+        self.HP_gpu = False
         self.HP_lr = args.lr
-        self.HP_model_name = ""
-        self.HP_encoder_type = ""
-        self.HP_optim = ""
+        self.HP_model_name = args.model_name
+        self.HP_encoder_type = args.encoder
+        self.HP_optim = args.optim
+        self.HP_number_normalized = args.number_normalized
+        self.HP_seed = args.seed
+        self.HP_l2 = args.l2
+        self.HP_kernel_size = args.kernel_size
+        self.HP_kernel_num = args.kernel_num
+
         # self.HP_lr_decay = 0.05
         # self.HP_clip = None
         # self.HP_momentum = 0
@@ -90,7 +96,7 @@ class Data:
                 label = pairs[0].strip()
                 self.label_alphabet.add(label)
                 for word in pairs[2:]:
-                    if self.number_normalized:
+                    if self.HP_number_normalized:
                         word = normalize_word(word)
                     self.word_alphabet.add(word)
                     for char in word:
@@ -114,7 +120,7 @@ class Data:
                 if line:
                     pairs = line.strip().split()
                     for word in pairs[2:]:
-                        if self.number_normalized:
+                        if self.HP_number_normalized:
                             word = normalize_word(word)  # 如果单词中有数字，变为0
                         self.word_alphabet.add(word)
                         for char in word:
@@ -136,13 +142,13 @@ class Data:
         self.fix_alphabet()
         if name == "train":
             self.train_texts, self.train_Ids = read_instance(input_file, self.word_alphabet, self.char_alphabet,
-                                                             self.label_alphabet, self.number_normalized)
+                                                             self.label_alphabet, self.HP_number_normalized)
         elif name == "dev":
             self.dev_texts, self.dev_Ids = read_instance(input_file, self.word_alphabet, self.char_alphabet,
-                                                         self.label_alphabet, self.number_normalized)
+                                                         self.label_alphabet, self.HP_number_normalized)
         elif name == "test":
             self.test_texts, self.test_Ids = read_instance(input_file, self.word_alphabet, self.char_alphabet,
-                                                           self.label_alphabet, self.number_normalized)
+                                                           self.label_alphabet, self.HP_number_normalized)
         else:
             print("Error: you can only generate train/dev/test instance! Illegal input:%s" % name)
 

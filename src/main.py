@@ -75,11 +75,11 @@ def evaluate(ids, model, batch_size):
 
 def main():
     cmd = argparse.ArgumentParser("sentence_representation_library")
-    # dataset
-    cmd.add_argument("--train", help='train data_path', type=str, default='../data/train.txt')
-    cmd.add_argument("--dev", help='dev data_path', type=str, default='../data/valid.txt')
-    cmd.add_argument("--test", help='test data_path', type=str, default='../data/test.txt')
-    cmd.add_argument("--batch_size", help='batch_size', type=int, default=16)
+    cmd.add_argument("--train", help='train data_path', type=str, default='../data2/train.txt')
+    cmd.add_argument("--dev", help='dev data_path', type=str, default='../data2/valid.txt')
+    cmd.add_argument("--test", help='test data_path', type=str, default='../data2/test.txt')
+    cmd.add_argument("--number_normalized", help='number_normalized', action="store_true")
+    cmd.add_argument("--batch_size", help='batch_size', type=int, default=2)
     cmd.add_argument("--max_epoch", help='max_epoch', type=int, default=100)
     cmd.add_argument("--hidden_size", help='hidden_size', type=int, default=200)
     cmd.add_argument("--embedding_size", help='embedding_size', type=int, default=200)
@@ -97,10 +97,10 @@ def main():
     cmd.add_argument("--load_model", default="", help="model path")
     # character
     cmd.add_argument("--char_encoder", help="options:[bilstm, cnn]", type=str, default='bilstm')
-    # char lstm
     cmd.add_argument("--char_hidden_dim", help="char_hidden_dim", type=int, default=50)
     cmd.add_argument("--char_embedding_path", help='char_embedding_path', default="")
     cmd.add_argument("--char_embedding_size", help='char_embedding_size', type=int, default=50)
+    cmd.add_argument("--char_dropout", help="char_dropout", type=float, default=0.5)
 
     args = cmd.parse_args()
 
@@ -111,18 +111,14 @@ def main():
     # gpu use
     use_cuda = torch.cuda.is_available() and args.gpu
 
-    if args.char_encoder:
-        use_char = True
-    else:
-        use_char = False
+    # char use
+    use_char = True if args.char_encoder else False
 
-    data = Data(args, use_cuda, use_char)
+    data = Data(args)
 
     # set some hyper parameters
-    data.number_normalized = True  # replace all the number with zero
-    data.HP_encoder_type = args.encoder  # encode type
-    data.HP_model_name = args.model_name  # model name
-    data.HP_optim = args.optim  # SGD or Adam
+    data.HP_use_char = use_char
+    data.HP_gpu = use_cuda
 
     # build word character label alphabet
     data.build_alphabet(args.train)
@@ -141,15 +137,17 @@ def main():
 
     # create visdom enviroment
     vis = Visdom(env=data.HP_model_name)
+    # check visdom connection
+    vis_use = vis.check_connection()
 
-    # if use_char and args.char_encoder is "bilstm":
-    #     input_size = data.word_emb_dim + 2 * data.HP_char_hidden_dim
-    # else:
-    data.input_size = data.HP_word_emb_dim
+    if data.HP_use_char and data.HP_char_features == "bilstm":
+        data.input_size = data.HP_word_emb_dim + 2 * data.HP_char_hidden_dim
+    else:
+        data.input_size = data.HP_word_emb_dim
 
     # create factory and type create the model according to the encoder
     factory = ModelFactory()
-    model = factory.get_model(data, args)
+    model = factory.get_model(data)
 
     # load model
     if args.load_model:
@@ -158,7 +156,7 @@ def main():
     if use_cuda:
         model = model.cuda()
 
-    # Dataset、DataLoader for batch
+    # Dataset、DataLoader for Batch
     dataset = MyDataset(data.train_Ids)
     dataloader = DataLoader(dataset=dataset, batch_size=data.HP_batch_size, shuffle=True, collate_fn=collate_batch)
 
@@ -185,8 +183,10 @@ def main():
 
         logging.info("epoch:{0} loss:{1}".format(epoch, round_loss.data[0]))
 
-        vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor(round_loss.data), win='loss',
-                 update='append' if epoch > 0 else None)
+        # draw loss
+        if vis_use:
+            vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor(round_loss.data), win='loss',
+                     update='append' if epoch > 0 else None)
 
         # use current model to test on the dev set
         valid_acc = evaluate(data.dev_Ids, model, data.HP_batch_size)
@@ -197,8 +197,11 @@ def main():
             # test on the test set
             test_acc = evaluate(data.test_Ids, model, data.HP_batch_size)
 
-            vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor([test_acc]), win='test_acc',
-                     update='append' if epoch > 0 else None)
+            # draw test acc
+            if vis_use:
+                vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor([test_acc]), win='test_acc',
+                         update='append' if epoch > 0 else None)
+
             # save model
             torch.save(model.state_dict(), "../model/" + data.HP_model_name + ".model")
             logging.info(
