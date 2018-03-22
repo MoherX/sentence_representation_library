@@ -78,40 +78,38 @@ def padding_word_char(use_cuda, batch_words, batch_chars, batch_label):
     chars = batch_chars
     labels = batch_label
 
-    word_seq_lengths = torch.LongTensor(map(len, words))  # 句子长度 [torch.LongTensor of size 2]
-
+    word_seq_lengths = torch.LongTensor(map(len, words))  # 每一句话句子长度 [torch.LongTensor of size 2]
     max_seq_len = word_seq_lengths.max()  # 句子的最大长度 number
-
     word_seq_tensor = Variable(torch.zeros((batch_size, max_seq_len))).long()
     mask = Variable(torch.zeros((batch_size, max_seq_len))).byte()
 
+    # 用0对word进行padding
     for idx, (seq, seqlen) in enumerate(zip(words, word_seq_lengths)):
         word_seq_tensor[idx, :seqlen] = torch.LongTensor(seq)
         mask[idx, :seqlen] = torch.Tensor([1] * seqlen)
 
     word_seq_lengths, word_perm_idx = word_seq_lengths.sort(0, descending=True)  # 按照长度降序排序
-    # word_seq_lengths = Variable(word_seq_lengths)
     word_seq_tensor = word_seq_tensor[word_perm_idx]  # 得到的tensor也对应排序
     mask = mask[word_perm_idx]
 
     label_seq_tensor = Variable(torch.LongTensor(labels))
     label_seq_tensor = label_seq_tensor[word_perm_idx]  # 转换label与之前降序排序之后的对应
 
-    pad_chars = [chars[idx] + [[0]] * (max_seq_len - len(chars[idx])) for idx in range(len(chars))]
-    length_list = [map(len, pad_char) for pad_char in pad_chars]
-    max_word_len = max(map(max, length_list))
-    char_seq_tensor = Variable(torch.zeros((batch_size, max_seq_len, max_word_len)), ).long()
+    # character padding
+    pad_chars = [chars[idx] + [[0]] * (max_seq_len - len(chars[idx])) for idx in range(len(chars))]  # 首选补全word，使得长度一样
+    length_list = [map(len, pad_char) for pad_char in pad_chars]  # 得到每句话每个词的长度（上面补充的0也算）
+    max_word_len = max(map(max, length_list))  # 取出所有中长度最长的
+    char_seq_tensor = Variable(torch.zeros((batch_size, max_seq_len, max_word_len))).long()
     char_seq_lengths = torch.LongTensor(length_list)
     for idx, (seq, seqlen) in enumerate(zip(pad_chars, char_seq_lengths)):
         for idy, (word, wordlen) in enumerate(zip(seq, seqlen)):
             char_seq_tensor[idx, idy, :wordlen] = torch.LongTensor(word)
 
-    char_seq_tensor = char_seq_tensor[word_perm_idx].view(batch_size * max_seq_len, -1)
-
+    char_seq_tensor = char_seq_tensor[word_perm_idx].view(batch_size * max_seq_len, -1)  # 按照上面的顺序调换
     char_seq_lengths = char_seq_lengths[word_perm_idx].view(batch_size * max_seq_len, )
     char_seq_lengths, char_perm_idx = char_seq_lengths.sort(0, descending=True)
-    # char_seq_lengths = Variable(char_seq_lengths)
-    char_seq_tensor = char_seq_tensor[char_perm_idx]
+    char_seq_tensor = char_seq_tensor[char_perm_idx]  # 已经被完全打乱，完全按照word长度来进行排序
+
     _, char_seq_recover = char_perm_idx.sort(0, descending=False)
     _, word_seq_recover = word_perm_idx.sort(0, descending=False)
 
