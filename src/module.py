@@ -169,35 +169,43 @@ class CnnModel(Model):
         self.l2 = data.HP_l2
         self.kernel_size = [int(size) for size in data.HP_kernel_size.split("*")]
         self.kernel_num = [int(num) for num in data.HP_kernel_num.split("*")]
-        nums = 0
-        for n in self.kernel_num:
-            nums += n
+        nums = sum(self.kernel_num)
         self.linear = nn.Linear(nums, self.output_size)
         self.convs = nn.ModuleList(
-            [nn.Conv2d(1, num, (size, self.embedding_size)) for (size, num) in zip(self.kernel_size, self.kernel_num)])
+            [nn.Conv2d(1, num, (size, self.input_size)) for (size, num) in zip(self.kernel_size, self.kernel_num)])
 
     def forward(self, input_x, input_char, input_y):
-        input_x, batch_chars, input_y, sentence_lens, word_lens = padding(input_x, input_char, input_y)
-        max_len = len(input_x[0])
-        self.poolings = nn.ModuleList([nn.MaxPool1d(max_len - size + 1, 1) for size in
+        word_seq_tensor, word_seq_lengths, word_seq_recover, char_seq_tensor, char_seq_lengths, char_seq_recover, label_seq_tensor, mask = padding_word_char(
+            self.use_cuda, input_x, input_char, input_y)
+
+        input_x = word_seq_tensor
+        input_y = label_seq_tensor
+	batch_size = word_seq_tensor.size(0)
+        sent_len = word_seq_tensor.size(1)
+
+        self.poolings = nn.ModuleList([nn.MaxPool1d(sent_len - size + 1, 1) for size in
                                        self.kernel_size])  # the output of each pooling layer is a number
 
-        if self.use_cuda:
-            input_x = Variable(torch.LongTensor(input_x)).cuda()
-            input_y = Variable(torch.LongTensor(input_y)).cuda()
-        else:
-            input_x = Variable(torch.LongTensor(input_x))
-            input_y = Variable(torch.LongTensor(input_y))
-
-        input = input_x.squeeze(1)
-
+	input = input_x.squeeze(1)
         embed_input_x = self.embedding(input)  # embed_intput_x: (b_s, m_l, em_s)
+
+        if self.use_char:
+            char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                               char_seq_lengths.numpy())  # Variable(batch_size, char_hidden_dim)
+            char_features = char_features[char_seq_recover]
+            char_features = char_features.view(batch_size, sent_len, -1)
+            embed_input_x = torch.cat([embed_input_x, char_features], 2)
+
         embed_input_x = self.dropout(embed_input_x)
         embed_input_x = embed_input_x.view(embed_input_x.size(0), 1, -1, embed_input_x.size(2))
 
         parts = []  # example:[3,4,5] [100,100,100] the dims of data though pooling layer is 100 + 100 + 100 = 300
-        for (conv, pooling) in zip(self.convs, self.poolings):
-            parts.append(pooling(conv(embed_input_x).squeeze()).view(input_x.size(0), -1))
+        for (conv, pooling) in zip(self.convs, self.poolings): 
+		conved_data = conv(embed_input_x).squeeze()	
+		if len(conved_data.size()) == 2:
+			conved_data = conved_data.view(1,conved_data.size(0),conved_data.size(1))
+		pooled_data = pooling(conved_data).view(input_x.size(0), -1)	
+		parts.append(pooled_data)
         x = F.relu(torch.cat(parts, 1))
 
         # make sure the l2 norm of w less than l2

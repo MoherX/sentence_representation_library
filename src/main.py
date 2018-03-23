@@ -206,6 +206,7 @@ def main():
             torch.save(model.state_dict(), "../model/" + data.HP_model_name + ".model")
             logging.info(
                 "epoch:{0} New Record! valid_accuracy:{1}, test_accuracy:{2}".format(epoch, valid_acc, test_acc))
+	exit(0)
 
     # finally, we evaluate valid and test dataset accuracy
     valid_acc = evaluate(data.dev_Ids, model, data.HP_batch_size)
