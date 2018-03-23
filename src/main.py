@@ -75,9 +75,9 @@ def evaluate(ids, model, batch_size):
 
 def main():
     cmd = argparse.ArgumentParser("sentence_representation_library")
-    cmd.add_argument("--train", help='train data_path', type=str, default='../data2/train.txt')
-    cmd.add_argument("--dev", help='dev data_path', type=str, default='../data2/valid.txt')
-    cmd.add_argument("--test", help='test data_path', type=str, default='../data2/test.txt')
+    cmd.add_argument("--train", help='train data_path', type=str, default='../data/train.txt')
+    cmd.add_argument("--dev", help='dev data_path', type=str, default='../data/valid.txt')
+    cmd.add_argument("--test", help='test data_path', type=str, default='../data/test.txt')
     cmd.add_argument("--number_normalized", help='number_normalized', action="store_true")
     cmd.add_argument("--batch_size", help='batch_size', type=int, default=2)
     cmd.add_argument("--max_epoch", help='max_epoch', type=int, default=100)
