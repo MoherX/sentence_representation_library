@@ -35,8 +35,7 @@ class Model(nn.Module):
         self.dropout_rate = data.HP_dropout
         self.seed = data.HP_seed
         self.use_char = data.HP_use_char
-        print "data.HP_use_char"
-        print data.HP_use_char
+        self.char_encoder = data.HP_char_features
         torch.manual_seed(self.seed)  # fixed the seed
         random.seed(self.seed)
 
@@ -44,8 +43,13 @@ class Model(nn.Module):
             self.embedding.weight = nn.Parameter(torch.FloatTensor(data.pretrain_word_embedding))
 
         if self.use_char:
-            self.char_feature = CharBiLSTM(self.use_cuda, data.char_alphabet_size, data.HP_char_emb_dim,
-                                           data.HP_char_hidden_dim, data.HP_char_dropout, data.pretrain_char_embedding)
+            if self.char_encoder == "bilstm":
+                self.char_feature = CharBiLSTM(self.use_cuda, data.char_alphabet_size, data.HP_char_emb_dim,
+                                               data.HP_char_hidden_dim, data.HP_char_dropout,
+                                               data.pretrain_char_embedding)
+            elif self.char_encoder == "cnn":
+                self.char_feature = CharCNN(self.use_cuda, data.char_alphabet_size, data.HP_char_emb_dim,
+                                            data.HP_char_hidden_dim, data.HP_char_dropout, data.pretrain_char_embedding)
 
 
 class LstmModel(Model):
@@ -180,13 +184,13 @@ class CnnModel(Model):
 
         input_x = word_seq_tensor
         input_y = label_seq_tensor
-	batch_size = word_seq_tensor.size(0)
+        batch_size = word_seq_tensor.size(0)
         sent_len = word_seq_tensor.size(1)
 
         self.poolings = nn.ModuleList([nn.MaxPool1d(sent_len - size + 1, 1) for size in
                                        self.kernel_size])  # the output of each pooling layer is a number
 
-	input = input_x.squeeze(1)
+        input = input_x.squeeze(1)
         embed_input_x = self.embedding(input)  # embed_intput_x: (b_s, m_l, em_s)
 
         if self.use_char:
@@ -200,12 +204,12 @@ class CnnModel(Model):
         embed_input_x = embed_input_x.view(embed_input_x.size(0), 1, -1, embed_input_x.size(2))
 
         parts = []  # example:[3,4,5] [100,100,100] the dims of data though pooling layer is 100 + 100 + 100 = 300
-        for (conv, pooling) in zip(self.convs, self.poolings): 
-		conved_data = conv(embed_input_x).squeeze()	
-		if len(conved_data.size()) == 2:
-			conved_data = conved_data.view(1,conved_data.size(0),conved_data.size(1))
-		pooled_data = pooling(conved_data).view(input_x.size(0), -1)	
-		parts.append(pooled_data)
+        for (conv, pooling) in zip(self.convs, self.poolings):
+            conved_data = conv(embed_input_x).squeeze()
+            if len(conved_data.size()) == 2:
+                conved_data = conved_data.view(1, conved_data.size(0), conved_data.size(1))
+            pooled_data = pooling(conved_data).view(input_x.size(0), -1)
+            parts.append(pooled_data)
         x = F.relu(torch.cat(parts, 1))
 
         # make sure the l2 norm of w less than l2
@@ -329,6 +333,63 @@ class CharBiLSTM(nn.Module):
         char_rnn_out, char_hidden = self.char_lstm(pack_input, char_hidden)
         char_rnn_out, _ = pad_packed_sequence(char_rnn_out)
         return char_rnn_out.transpose(1, 0)
+
+    def forward(self, input, seq_lengths):
+        return self.get_all_hiddens(input, seq_lengths)
+
+
+class CharCNN(nn.Module):
+    def __init__(self, use_cuda, alphabet_size, embedding_dim, hidden_dim, dropout_rate, pretrined_embedding=None):
+        super(CharCNN, self).__init__()
+        print "build batched char cnn..."
+        self.use_cuda = use_cuda
+        self.alphabet_size = alphabet_size
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.dropout_rate = dropout_rate
+        self.char_drop = nn.Dropout(self.dropout_rate)
+        self.char_embeddings = nn.Embedding(alphabet_size, embedding_dim)
+
+        if pretrined_embedding is not None:
+            self.char_embeddings.weight = nn.Parameter(torch.FloatTensor(pretrined_embedding))
+
+        self.char_cnn = nn.Conv1d(embedding_dim, self.hidden_dim, kernel_size=3, padding=1)
+
+        if self.use_cuda:
+            self.char_drop = self.char_drop.cuda()
+            self.char_embeddings = self.char_embeddings.cuda()
+            self.char_cnn = self.char_cnn.cuda()
+
+    def get_last_hiddens(self, input, seq_lengths):
+        """
+            input:
+                input: Variable(batch_size, word_length)
+                seq_lengths: numpy array (batch_size,  1)
+            output:
+                Variable(batch_size, char_hidden_dim)
+            Note it only accepts ordered (length) variable, length size is recorded in seq_lengths
+        """
+        batch_size = input.size(0)
+        char_embeds = self.char_drop(self.char_embeddings(input))
+        char_embeds = char_embeds.transpose(2, 1).contiguous()
+        char_cnn_out = self.char_cnn(char_embeds)
+        char_cnn_out = F.max_pool1d(char_cnn_out, char_cnn_out.size(2)).view(batch_size, -1)
+        return char_cnn_out
+
+    def get_all_hiddens(self, input, seq_lengths):
+        """
+            input:
+                input: Variable(batch_size,  word_length)
+                seq_lengths: numpy array (batch_size,  1)
+            output:
+                Variable(batch_size, word_length, char_hidden_dim)
+            Note it only accepts ordered (length) variable, length size is recorded in seq_lengths
+        """
+        batch_size = input.size(0)
+        char_embeds = self.char_drop(self.char_embeddings(input))
+        char_embeds = char_embeds.transpose(2, 1).contiguous()
+        char_cnn_out = self.char_cnn(char_embeds).transpose(2, 1).contiguous()
+        return char_cnn_out
 
     def forward(self, input, seq_lengths):
         return self.get_all_hiddens(input, seq_lengths)

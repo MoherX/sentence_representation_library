@@ -96,7 +96,7 @@ def main():
     cmd.add_argument("--optim", default="Adam", help="options:[Adam,SGD]")
     cmd.add_argument("--load_model", default="", help="model path")
     # character
-    cmd.add_argument("--char_encoder", help="options:[bilstm, cnn]", type=str, default='bilstm')
+    cmd.add_argument("--char_encoder", help="options:[bilstm, cnn]", type=str, default='cnn')
     cmd.add_argument("--char_hidden_dim", help="char_hidden_dim", type=int, default=50)
     cmd.add_argument("--char_embedding_path", help='char_embedding_path', default="")
     cmd.add_argument("--char_embedding_size", help='char_embedding_size', type=int, default=50)
@@ -140,8 +140,11 @@ def main():
     # check visdom connection
     vis_use = vis.check_connection()
 
-    if data.HP_use_char and data.HP_char_features == "bilstm":
-        data.input_size = data.HP_word_emb_dim + 2 * data.HP_char_hidden_dim
+    if data.HP_use_char:
+        if data.HP_char_features == "bilstm":
+            data.input_size = data.HP_word_emb_dim + 2 * data.HP_char_hidden_dim
+        elif data.HP_char_features == "cnn":
+            data.input_size = data.HP_word_emb_dim + data.HP_char_hidden_dim
     else:
         data.input_size = data.HP_word_emb_dim
 
