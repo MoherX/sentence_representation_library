@@ -201,9 +201,11 @@ class CnnModel(Model):
 
         parts = []  # example:[3,4,5] [100,100,100] the dims of data though pooling layer is 100 + 100 + 100 = 300
         for (conv, pooling) in zip(self.convs, self.poolings): 
-		conved_data = conv(embed_input_x).squeeze()	
+		conved_data = conv(embed_input_x).squeeze()
 		if len(conved_data.size()) == 2:
 			conved_data = conved_data.view(1,conved_data.size(0),conved_data.size(1))
+		if len(conved_data.size()) == 1:
+			conved_data = conved_data.view(1,conved_data.size(0),1)
 		pooled_data = pooling(conved_data).view(input_x.size(0), -1)	
 		parts.append(pooled_data)
         x = F.relu(torch.cat(parts, 1))

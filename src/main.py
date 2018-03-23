@@ -75,9 +75,9 @@ def evaluate(ids, model, batch_size):
 
 def main():
     cmd = argparse.ArgumentParser("sentence_representation_library")
-    cmd.add_argument("--train", help='train data_path', type=str, default='../data2/train.txt')
-    cmd.add_argument("--dev", help='dev data_path', type=str, default='../data2/valid.txt')
-    cmd.add_argument("--test", help='test data_path', type=str, default='../data2/test.txt')
+    cmd.add_argument("--train", help='train data_path', type=str, default='../data/train.txt')
+    cmd.add_argument("--dev", help='dev data_path', type=str, default='../data/valid.txt')
+    cmd.add_argument("--test", help='test data_path', type=str, default='../data/test.txt')
     cmd.add_argument("--number_normalized", help='number_normalized', action="store_true")
     cmd.add_argument("--batch_size", help='batch_size', type=int, default=2)
     cmd.add_argument("--max_epoch", help='max_epoch', type=int, default=100)
@@ -87,7 +87,7 @@ def main():
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
     cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
-    cmd.add_argument("--kernel_size", help="kernel_size", type=str, default="3*4*5")
+    cmd.add_argument("--kernel_size", help="kernel_size[Attention:the kernal size should be smaller than the length of your input after padding]", type=str, default="3*4*5")
     cmd.add_argument("--kernel_num", help="kernel_num", type=str, default="100*100*100")
     cmd.add_argument("--l2", help="l2 norm", type=int, default=3)
     cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm, sum]", type=str, default='bilstm')
