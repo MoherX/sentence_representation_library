@@ -35,8 +35,7 @@ class Model(nn.Module):
         self.dropout_rate = data.HP_dropout
         self.seed = data.HP_seed
         self.use_char = data.HP_use_char
-        print "data.HP_use_char"
-        print data.HP_use_char
+        self.char_encoder = data.HP_char_features
         torch.manual_seed(self.seed)  # fixed the seed
         random.seed(self.seed)
 
@@ -44,8 +43,13 @@ class Model(nn.Module):
             self.embedding.weight = nn.Parameter(torch.FloatTensor(data.pretrain_word_embedding))
 
         if self.use_char:
-            self.char_feature = CharBiLSTM(self.use_cuda, data.char_alphabet_size, data.HP_char_emb_dim,
-                                           data.HP_char_hidden_dim, data.HP_char_dropout, data.pretrain_char_embedding)
+            if self.char_encoder == "bilstm":
+                self.char_feature = CharBiLSTM(self.use_cuda, data.char_alphabet_size, data.HP_char_emb_dim,
+                                               data.HP_char_hidden_dim, data.HP_char_dropout,
+                                               data.pretrain_char_embedding)
+            elif self.char_encoder == "cnn":
+                self.char_feature = CharCNN(self.use_cuda, data.char_alphabet_size, data.HP_char_emb_dim,
+                                            data.HP_char_hidden_dim, data.HP_char_dropout, data.pretrain_char_embedding)
 
 
 class LstmModel(Model):
@@ -308,10 +312,12 @@ class CharBiLSTM(nn.Module):
             Note it only accepts ordered (length) variable, length size is recorded in seq_lengths
         """
         batch_size = input.size(0)
+        print batch_size
         char_embeds = self.char_drop(self.char_embeddings(input))
         char_hidden = None
         pack_input = pack_padded_sequence(char_embeds, seq_lengths, True)
         char_rnn_out, char_hidden = self.char_lstm(pack_input, char_hidden)
+        print char_rnn_out
         char_rnn_out, _ = pad_packed_sequence(char_rnn_out)
         return char_hidden[0].transpose(1, 0).contiguous().view(batch_size, -1)
 
@@ -331,6 +337,63 @@ class CharBiLSTM(nn.Module):
         char_rnn_out, char_hidden = self.char_lstm(pack_input, char_hidden)
         char_rnn_out, _ = pad_packed_sequence(char_rnn_out)
         return char_rnn_out.transpose(1, 0)
+
+    def forward(self, input, seq_lengths):
+        return self.get_all_hiddens(input, seq_lengths)
+
+
+class CharCNN(nn.Module):
+    def __init__(self, use_cuda, alphabet_size, embedding_dim, hidden_dim, dropout_rate, pretrined_embedding=None):
+        super(CharCNN, self).__init__()
+        print "build batched char cnn..."
+        self.use_cuda = use_cuda
+        self.alphabet_size = alphabet_size
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.dropout_rate = dropout_rate
+        self.char_drop = nn.Dropout(self.dropout_rate)
+        self.char_embeddings = nn.Embedding(alphabet_size, embedding_dim)
+
+        if pretrined_embedding is not None:
+            self.char_embeddings.weight = nn.Parameter(torch.FloatTensor(pretrined_embedding))
+
+        self.char_cnn = nn.Conv1d(embedding_dim, self.hidden_dim, kernel_size=3, padding=1)
+
+        if self.use_cuda:
+            self.char_drop = self.char_drop.cuda()
+            self.char_embeddings = self.char_embeddings.cuda()
+            self.char_cnn = self.char_cnn.cuda()
+
+    def get_last_hiddens(self, input, seq_lengths):
+        """
+            input:
+                input: Variable(batch_size, word_length)
+                seq_lengths: numpy array (batch_size,  1)
+            output:
+                Variable(batch_size, char_hidden_dim)
+            Note it only accepts ordered (length) variable, length size is recorded in seq_lengths
+        """
+        batch_size = input.size(0)
+        char_embeds = self.char_drop(self.char_embeddings(input))
+        char_embeds = char_embeds.transpose(2, 1).contiguous()
+        char_cnn_out = self.char_cnn(char_embeds)
+        char_cnn_out = F.max_pool1d(char_cnn_out, char_cnn_out.size(2)).view(batch_size, -1)
+        return char_cnn_out
+
+    def get_all_hiddens(self, input, seq_lengths):
+        """
+            input:
+                input: Variable(batch_size,  word_length)
+                seq_lengths: numpy array (batch_size,  1)
+            output:
+                Variable(batch_size, word_length, char_hidden_dim)
+            Note it only accepts ordered (length) variable, length size is recorded in seq_lengths
+        """
+        batch_size = input.size(0)
+        char_embeds = self.char_drop(self.char_embeddings(input))
+        char_embeds = char_embeds.transpose(2, 1).contiguous()
+        char_cnn_out = self.char_cnn(char_embeds).transpose(2, 1).contiguous()
+        return char_cnn_out
 
     def forward(self, input, seq_lengths):
         return self.get_all_hiddens(input, seq_lengths)
