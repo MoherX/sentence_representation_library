@@ -94,7 +94,7 @@ def main():
     cmd.add_argument("--l2", help="l2 norm", type=int, default=3)
     cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm, sum]", type=str, default='bilstm')
     cmd.add_argument("--gpu", action="store_true", help="use gpu")
-    cmd.add_argument("--model_name", default="sr", help="model name")
+    cmd.add_argument("--model_name", default="sr1", help="model name")
     cmd.add_argument("--optim", default="Adam", help="options:[Adam,SGD]")
     cmd.add_argument("--load_model", default="", help="model path")
     # character
@@ -176,7 +176,7 @@ def main():
             optimizer.step()  # update parameters
             round_loss += loss.data[0]  # the sum of the each epoch`s loss
 
-        logging.info("epoch:{0} loss:{1}".format(epoch, round_loss.data[0]))
+        logging.info("epoch:{0} loss:{1}".format(epoch, round_loss))
 
         # draw loss
         if vis_use:
