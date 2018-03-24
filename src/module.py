@@ -87,15 +87,23 @@ class LstmModel(Model):
         sent_len = word_seq_tensor.size(1)
 
         if self.use_char:
-            char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
-                                                               char_seq_lengths.numpy())  # Variable(batch_size, char_hidden_dim)
+            if self.use_cuda:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.numpy())
+            else:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.cpu().numpy())
             char_features = char_features[char_seq_recover]
             char_features = char_features.view(batch_size, sent_len, -1)
             embed_input_x = torch.cat([embed_input_x, char_features], 2)
 
         embed_input_x = self.dropout(embed_input_x)
 
-        embed_input_x_packed = pack_padded_sequence(embed_input_x, word_seq_lengths.numpy(), batch_first=True)
+        if self.use_cuda:
+            embed_input_x_packed = pack_padded_sequence(embed_input_x, word_seq_lengths.cpu().numpy(), batch_first=True)
+        else:
+            embed_input_x_packed = pack_padded_sequence(embed_input_x, word_seq_lengths.numpy(), batch_first=True)
+
         encoder_outputs_packed, (h_last, c_last) = self.lstm(embed_input_x_packed)
         encoder_outputs, _ = pad_packed_sequence(encoder_outputs_packed, batch_first=True)
 
@@ -143,8 +151,12 @@ class BilstmModel(Model):
         sent_len = word_seq_tensor.size(1)
 
         if self.use_char:
-            char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
-                                                               char_seq_lengths.numpy())  # Variable(batch_size, char_hidden_dim)
+            if self.use_cuda:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.numpy())
+            else:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.cpu().numpy())
             char_features = char_features[char_seq_recover]
             char_features = char_features.view(batch_size, sent_len, -1)
             embed_input_x = torch.cat([embed_input_x, char_features], 2)
@@ -184,18 +196,22 @@ class CnnModel(Model):
 
         input_x = word_seq_tensor
         input_y = label_seq_tensor
-	batch_size = word_seq_tensor.size(0)
+        batch_size = word_seq_tensor.size(0)
         sent_len = word_seq_tensor.size(1)
 
         self.poolings = nn.ModuleList([nn.MaxPool1d(sent_len - size + 1, 1) for size in
                                        self.kernel_size])  # the output of each pooling layer is a number
 
-	input = input_x.squeeze(1)
+        input = input_x.squeeze(1)
         embed_input_x = self.embedding(input)  # embed_intput_x: (b_s, m_l, em_s)
 
         if self.use_char:
-            char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
-                                                               char_seq_lengths.numpy())  # Variable(batch_size, char_hidden_dim)
+            if self.use_cuda:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.numpy())
+            else:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.cpu().numpy())
             char_features = char_features[char_seq_recover]
             char_features = char_features.view(batch_size, sent_len, -1)
             embed_input_x = torch.cat([embed_input_x, char_features], 2)
@@ -204,14 +220,14 @@ class CnnModel(Model):
         embed_input_x = embed_input_x.view(embed_input_x.size(0), 1, -1, embed_input_x.size(2))
 
         parts = []  # example:[3,4,5] [100,100,100] the dims of data though pooling layer is 100 + 100 + 100 = 300
-        for (conv, pooling) in zip(self.convs, self.poolings): 
-		conved_data = conv(embed_input_x).squeeze()
-		if len(conved_data.size()) == 2:
-			conved_data = conved_data.view(1,conved_data.size(0),conved_data.size(1))
-		if len(conved_data.size()) == 1:
-			conved_data = conved_data.view(1,conved_data.size(0),1)
-		pooled_data = pooling(conved_data).view(input_x.size(0), -1)	
-		parts.append(pooled_data)
+        for (conv, pooling) in zip(self.convs, self.poolings):
+            conved_data = conv(embed_input_x).squeeze()
+            if len(conved_data.size()) == 2:
+                conved_data = conved_data.view(1, conved_data.size(0), conved_data.size(1))
+            if len(conved_data.size()) == 1:
+                conved_data = conved_data.view(1, conved_data.size(0), 1)
+            pooled_data = pooling(conved_data).view(input_x.size(0), -1)
+            parts.append(pooled_data)
         x = F.relu(torch.cat(parts, 1))
 
         # make sure the l2 norm of w less than l2
@@ -250,8 +266,12 @@ class SumModel(Model):
         sent_len = word_seq_tensor.size(1)
 
         if self.use_char:
-            char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
-                                                               char_seq_lengths.numpy())  # Variable(batch_size, char_hidden_dim)
+            if self.use_cuda:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.numpy())
+            else:
+                char_features = self.char_feature.get_last_hiddens(char_seq_tensor,
+                                                                   char_seq_lengths.cpu().numpy())
             char_features = char_features[char_seq_recover]
             char_features = char_features.view(batch_size, sent_len, -1)
             embed_input_x = torch.cat([embed_input_x, char_features], 2)

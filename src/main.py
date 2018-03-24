@@ -87,7 +87,9 @@ def main():
     cmd.add_argument("--lr", help='lr', type=float, default=0.001)
     cmd.add_argument("--seed", help='seed', type=int, default=1)
     cmd.add_argument("--dropout", help="dropout", type=float, default=0.5)
-    cmd.add_argument("--kernel_size", help="kernel_size[Attention:the kernal size should be smaller than the length of your input after padding]", type=str, default="3*4*5")
+    cmd.add_argument("--kernel_size",
+                     help="kernel_size[Attention:the kernal size should be smaller than the length of your input after padding]",
+                     type=str, default="3*4*5")
     cmd.add_argument("--kernel_num", help="kernel_num", type=str, default="100*100*100")
     cmd.add_argument("--l2", help="l2 norm", type=int, default=3)
     cmd.add_argument("--encoder", help="options:[lstm, bilstm, gru, cnn, tri-lstm, sum]", type=str, default='bilstm')
@@ -96,7 +98,7 @@ def main():
     cmd.add_argument("--optim", default="Adam", help="options:[Adam,SGD]")
     cmd.add_argument("--load_model", default="", help="model path")
     # character
-    cmd.add_argument("--char_encoder", help="options:[bilstm, cnn]", type=str, default='cnn')
+    cmd.add_argument("--char_encoder", help="options:[bilstm, cnn]", type=str, default='')
     cmd.add_argument("--char_hidden_dim", help="char_hidden_dim", type=int, default=50)
     cmd.add_argument("--char_embedding_path", help='char_embedding_path', default="")
     cmd.add_argument("--char_embedding_size", help='char_embedding_size', type=int, default=50)
@@ -108,17 +110,7 @@ def main():
     torch.manual_seed(args.seed)
     random.seed(args.seed)
 
-    # gpu use
-    use_cuda = torch.cuda.is_available() and args.gpu
-
-    # char use
-    use_char = True if args.char_encoder else False
-
     data = Data(args)
-
-    # set some hyper parameters
-    data.HP_use_char = use_char
-    data.HP_gpu = use_cuda
 
     # build word character label alphabet
     data.build_alphabet(args.train)
@@ -156,7 +148,7 @@ def main():
     if args.load_model:
         model.load_state_dict(torch.load(args.load_model))
 
-    if use_cuda:
+    if data.HP_gpu:
         model = model.cuda()
 
     # Dataset、DataLoader for Batch
@@ -182,13 +174,13 @@ def main():
             loss = model.forward(batch_words, batch_chars, batch_label)
             loss.backward()  # back propagation
             optimizer.step()  # update parameters
-            round_loss += loss  # the sum of the each epoch`s loss
+            round_loss += loss.data[0]  # the sum of the each epoch`s loss
 
         logging.info("epoch:{0} loss:{1}".format(epoch, round_loss.data[0]))
 
         # draw loss
         if vis_use:
-            vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor(round_loss.data), win='loss',
+            vis.line(X=torch.FloatTensor([epoch]), Y=torch.FloatTensor(round_loss), win='loss',
                      update='append' if epoch > 0 else None)
 
         # use current model to test on the dev set

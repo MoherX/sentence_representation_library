@@ -1,6 +1,8 @@
 # coding=utf-8
 import sys
 import numpy as np
+import torch
+
 from alphabet import Alphabet
 import cPickle as pickle
 
@@ -46,9 +48,9 @@ class Data:
         self.HP_hidden_dim = args.hidden_size
         self.HP_dropout = args.dropout
         self.HP_char_dropout = args.char_dropout
-        self.HP_use_char = False
+        self.HP_use_char = True if args.char_encoder else False
         self.HP_char_features = args.char_encoder
-        self.HP_gpu = False
+        self.HP_gpu = torch.cuda.is_available() and args.gpu
         self.HP_lr = args.lr
         self.HP_model_name = args.model_name
         self.HP_encoder_type = args.encoder
